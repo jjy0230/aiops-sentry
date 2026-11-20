@@ -1,5 +1,11 @@
 # AIOps-Sentry
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-GitHub_Pages-blue.svg)](https://jjy0230.github.io/aiops-sentry/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
+
+> 🚀 **Live Interactive Web Console**: Try the zero-latency autonomous remediation simulator directly in your browser: [https://jjy0230.github.io/aiops-sentry/](https://jjy0230.github.io/aiops-sentry/)
+
 AIOps-Sentry is an ultra-low latency remediation arbitrator for Kubernetes microservices using structured decision models (Jev).
 
 Instead of relying on slow generative LLMs that output verbose text (taking 3-10 seconds), AIOps-Sentry leverages single-pass prefill logits evaluation (~20ms) over a discrete action space combined with strict safety envelope guardrails.
