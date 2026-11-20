@@ -68,6 +68,8 @@ class RemediationStatus(str, Enum):
     BLOCKED_BY_SAFETY = "BLOCKED_BY_SAFETY"
     COOLED_DOWN = "COOLED_DOWN"
     DRY_RUN = "DRY_RUN"
+    SHADOW_RECORDED = "SHADOW_RECORDED"
+    CASCADE_SUPPRESSED = "CASCADE_SUPPRESSED"
 
 
 class InteractiveCardDetails(BaseModel):
@@ -77,6 +79,7 @@ class InteractiveCardDetails(BaseModel):
 
 
 class RemediationExecutionResult(BaseModel):
+    incident_id: Optional[str] = None
     action: RemediationAction
     status: RemediationStatus
     executed: bool
@@ -102,3 +105,27 @@ class ApprovalResponse(BaseModel):
     executed_action: Optional[RemediationAction] = None
     target_service: Optional[str] = None
     operator_id: str
+
+
+class RestoreRequest(BaseModel):
+    namespace: str = "default"
+    pod_name: Optional[str] = None
+    service_name: Optional[str] = None
+    baseline_replicas: int = 2
+
+
+class RestoreResponse(BaseModel):
+    success: bool
+    message: str
+    target: str
+
+
+class GroundTruthSubmission(BaseModel):
+    incident_id: str
+    human_action: RemediationAction
+
+
+class ServiceDependencyEdgeInput(BaseModel):
+    upstream_service: str
+    downstream_service: str
+
