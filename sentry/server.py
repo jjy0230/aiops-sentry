@@ -1,7 +1,8 @@
 import time
 import logging
+import asyncio
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from sentry.config import settings
@@ -20,6 +21,9 @@ from sentry.engine import BaseJevEngine, MockJevEngine, HttpJevClient
 from sentry.safety import SafetyEnvelope, BlastRadiusGuard
 from sentry.executor import CompositeRemediationExecutor
 from sentry.human_gate import ApprovalTokenManager, InteractiveCardBuilder
+from sentry.storm_guard import AlertFingerprintDeduplicator, StormConcurrencyPool
+from sentry.closed_loop import PostRemediationProbeManager
+from sentry.telemetry import telemetry
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,7 +34,6 @@ logger = logging.getLogger("AIOps-Sentry")
 
 class SentryCore:
     def __init__(self):
-        # Choose engine
         if settings.use_mock_engine:
             self.engine: BaseJevEngine = MockJevEngine()
         else:
@@ -47,15 +50,22 @@ class SentryCore:
         )
         self.executor = CompositeRemediationExecutor()
         self.token_manager = ApprovalTokenManager()
+        self.deduplicator = AlertFingerprintDeduplicator(window_seconds=3.0)
+        self.concurrency_pool = StormConcurrencyPool(max_concurrency=10)
+        self.probe_manager = PostRemediationProbeManager(
+            executor_dispatch_fn=self.executor.execute,
+            verification_delay_seconds=2.0,
+        )
 
     async def process_context(self, ctx: FailureContext) -> RemediationExecutionResult:
+        start_time = time.perf_counter()
+
         # Step 1: Fast single-pass Jev forward arbitration (~20ms)
         arbitration = await self.engine.evaluate(ctx)
 
         # Step 2: Invariant safety envelope check (~2ms)
         status, final_action, verdict, requires_approval = self.safety.verify(ctx, arbitration)
 
-        # Step 3: Execution or Human Approval Escalation
         executed = False
         exec_message = ""
         approval_details = None
@@ -67,10 +77,19 @@ class SentryCore:
             exec_message = msg
             target_key = f"{ctx.namespace}:{ctx.service_name}:{ctx.pod_name or 'any'}"
             self.guard.record_execution(target_key)
+
+            # Schedule post-remediation verification probe
+            job_id = f"job-{ctx.service_name}-{int(time.time()*1000)}"
+            self.probe_manager.schedule_verification(
+                job_id=job_id,
+                ctx=ctx,
+                action=final_action,
+            )
         else:
             # Escalated, Cooled down, or Blocked by Safety Envelopes -> Human in the loop
             exec_message = f"Remediation blocked/escalated. Reason: {verdict}"
-            
+            telemetry.record_safety_block(status.value)
+
             # Generate cryptographic approval token and ChatOps cards
             token_str = self.token_manager.create_token(
                 action=arbitration.selected_action,
@@ -93,6 +112,9 @@ class SentryCore:
                 feishu_card=feishu_card,
                 dingtalk_card=dingtalk_card,
             )
+
+        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+        telemetry.record_arbitration(ctx.service_name, final_action.value, status.value, elapsed_ms)
 
         return RemediationExecutionResult(
             action=final_action,
@@ -121,7 +143,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AIOps-Sentry",
     description="Sub-100ms Autonomous Remediation Arbitrator for Kubernetes & Microservices powered by Jev",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -134,6 +156,12 @@ app.add_middleware(
 )
 
 
+@app.get("/metrics")
+async def prometheus_metrics():
+    """Prometheus self-observability metrics endpoint."""
+    return Response(content=telemetry.export_prometheus_text(), media_type="text/plain; version=0.0.4")
+
+
 @app.get("/v1/sentry/health")
 async def health():
     return {
@@ -141,6 +169,7 @@ async def health():
         "engine": "MockJevEngine" if settings.use_mock_engine else "RemoteHttpJev",
         "cooldown_seconds": settings.cooldown_seconds,
         "min_confidence": settings.min_confidence_threshold,
+        "storm_deduplicated_count": core.deduplicator.total_deduplicated_count,
     }
 
 
@@ -170,7 +199,6 @@ async def handle_human_approval(req: ApprovalRequest):
             operator_id=req.operator_id,
         )
 
-    # Reconstruct execution context from validated payload
     ctx = FailureContext(
         service_name=payload.service_name,
         namespace=payload.namespace,
@@ -195,10 +223,11 @@ async def handle_human_approval(req: ApprovalRequest):
 @app.post("/v1/sentry/webhook/alertmanager")
 async def alertmanager_webhook(payload: AlertmanagerWebhook):
     """
-    RFC-compliant Prometheus Alertmanager webhook receiver.
-    Parses firing alerts, extracts telemetry & stacktraces, and triggers instant arbitration.
+    High-throughput Prometheus Alertmanager webhook receiver.
+    Applies 3s sliding-window fingerprint deduplication and bounded-concurrency execution.
     """
-    results = []
+    parsed_contexts = []
+
     for alert in payload.alerts:
         if alert.status != "firing":
             continue
@@ -239,8 +268,27 @@ async def alertmanager_webhook(payload: AlertmanagerWebhook):
             trigger_rule=rule,
             extra_labels=labels,
         )
+        parsed_contexts.append(ctx)
 
-        res = await core.process_context(ctx)
-        results.append(res)
+    # Apply 3s Sliding Window Fingerprint Deduplication
+    contexts_to_arbitrate = []
+    for ctx in parsed_contexts:
+        is_new, group = core.deduplicator.process_incoming(ctx)
+        if is_new:
+            contexts_to_arbitrate.append(ctx)
+        else:
+            telemetry.record_deduplication(ctx.service_name)
 
-    return {"processed_alerts": len(results), "decisions": results}
+    # Process in bounded concurrency pool
+    tasks = [
+        core.concurrency_pool.execute_bounded(core.process_context(ctx))
+        for ctx in contexts_to_arbitrate
+    ]
+    results = await asyncio.gather(*tasks)
+
+    return {
+        "received_alerts": len(parsed_contexts),
+        "arbitrated_count": len(results),
+        "deduplicated_suppressed": len(parsed_contexts) - len(results),
+        "decisions": results,
+    }

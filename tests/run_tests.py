@@ -39,6 +39,16 @@ from tests.test_human_gate import (
     test_human_approval_api_endpoint_flow,
 )
 
+# Sprint 5 & 6 (V2 features) tests
+from tests.test_v2_features import (
+    test_storm_guard_sliding_window_deduplication,
+    test_escalation_ladder_mapping,
+    test_closed_loop_verification_recovery_success,
+    test_closed_loop_verification_unresolved_escalation,
+    test_telemetry_prometheus_exporter,
+    test_alertmanager_webhook_storm_deduplication_e2e,
+)
+
 
 async def main():
     sync_tests = [
@@ -56,6 +66,10 @@ async def main():
         ("Phase 4 - Human Gate: Tampered Token Rejection", test_token_tampering_rejected),
         ("Phase 4 - Human Gate: Replay Protection", test_token_replay_protection),
         ("Phase 4 - Human Gate: Feishu & DingTalk Cards", test_feishu_and_dingtalk_card_structure),
+        # Phase 5: Storm Guard & V2 Features
+        ("Phase 5 - Storm Guard: 3s Sliding Window Fingerprint Deduplication", test_storm_guard_sliding_window_deduplication),
+        ("Phase 6 - Closed Loop: Escalation Ladder Action Mapping", test_escalation_ladder_mapping),
+        ("Phase 7 - Telemetry: Prometheus Exposition Format", test_telemetry_prometheus_exporter),
     ]
 
     async_tests = [
@@ -69,14 +83,18 @@ async def main():
         ("Phase 2 - DB Executor: Blocker Targeted Kill", test_db_executor_integration),
         # Phase 4: Human Approval Flow
         ("Phase 4 - Approval API: Operator Authorization Flow", test_human_approval_api_endpoint_flow),
+        # Phase 6: Closed Loop Probes
+        ("Phase 6 - Closed Loop: Verification Recovery Success", test_closed_loop_verification_recovery_success),
+        ("Phase 6 - Closed Loop: Unresolved Incident Escalates to Next Tier", test_closed_loop_verification_unresolved_escalation),
+        ("Phase 5 - E2E Webhook: Alert Storm Batch Deduplication", test_alertmanager_webhook_storm_deduplication_e2e),
     ]
 
     passed = 0
     failed = 0
 
-    print("=" * 70)
-    print("AIOps-Sentry Full Production Test Suite (Phase 1 -> Phase 4)")
-    print("=" * 70)
+    print("=" * 75)
+    print("AIOps-Sentry Full Production Test Suite (Phase 1 -> Phase 8 / V2)")
+    print("=" * 75)
 
     for name, func in sync_tests:
         try:
@@ -96,9 +114,9 @@ async def main():
             print(f"[FAIL] {name}: {e}")
             failed += 1
 
-    print("=" * 70)
+    print("=" * 75)
     print(f"Summary: {passed} passed, {failed} failed.")
-    print("=" * 70)
+    print("=" * 75)
 
     if failed > 0:
         sys.exit(1)
