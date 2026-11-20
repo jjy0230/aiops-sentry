@@ -4,6 +4,7 @@ import asyncio
 import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from sentry.config import settings
@@ -33,6 +34,7 @@ from sentry.restorer import ServiceRestorer
 from sentry.postmortem import postmortem_engine
 from sentry.shadow_mode import shadow_manager
 from sentry.topology import cascade_suppressor
+from sentry.ui import get_ui_html
 
 logging.basicConfig(
     level=logging.INFO,
@@ -256,6 +258,12 @@ app.add_middleware(
 async def prometheus_metrics():
     """Prometheus self-observability metrics endpoint."""
     return Response(content=telemetry.export_prometheus_text(), media_type="text/plain; version=0.0.4")
+
+
+@app.get("/ui", response_class=HTMLResponse)
+async def visual_console():
+    """Interactive dark-mode real-time visual console for SRE demonstrations."""
+    return HTMLResponse(content=get_ui_html())
 
 
 @app.get("/v1/sentry/health")
