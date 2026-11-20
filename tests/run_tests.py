@@ -39,6 +39,42 @@ from tests.test_human_gate import (
     test_human_approval_api_endpoint_flow,
 )
 
+# Sprint 5 & 6 (V2 features) tests
+from tests.test_v2_features import (
+    test_storm_guard_sliding_window_deduplication,
+    test_escalation_ladder_mapping,
+    test_closed_loop_verification_recovery_success,
+    test_closed_loop_verification_unresolved_escalation,
+    test_telemetry_prometheus_exporter,
+    test_alertmanager_webhook_storm_deduplication_e2e,
+)
+
+# Sprint 7 & 8 (V3 features: Restorer, PostMortem, Shadow Mode) tests
+from tests.test_v3_features import (
+    test_service_restorer_traffic_and_scale,
+    test_restore_endpoint_flow,
+    test_postmortem_engine_markdown_generation,
+    test_shadow_mode_dry_run_and_scoreboard,
+)
+
+# Sprint 9 (V4 features: Topology Graph & Cascade Suppressor) tests
+from tests.test_v4_topology import (
+    test_topology_graph_multi_hop_traversal,
+    test_cascade_suppression_victim_shielding,
+    test_end_to_end_topology_cascade_pipeline,
+    test_topology_api_endpoints,
+)
+
+# Sprint 10 (V5 features: Visual Console UI & CLI Chaos Simulator) tests
+from tests.test_v5_cli_and_ui import (
+    test_ui_html_content_structure,
+    test_ui_endpoint_response,
+    test_cli_chaos_deadlock_simulation,
+    test_cli_chaos_cascade_simulation,
+    test_cli_chaos_oom_simulation,
+    test_cli_view_postmortem_and_scoreboard,
+)
+
 
 async def main():
     sync_tests = [
@@ -56,6 +92,19 @@ async def main():
         ("Phase 4 - Human Gate: Tampered Token Rejection", test_token_tampering_rejected),
         ("Phase 4 - Human Gate: Replay Protection", test_token_replay_protection),
         ("Phase 4 - Human Gate: Feishu & DingTalk Cards", test_feishu_and_dingtalk_card_structure),
+        # Phase 5: Storm Guard & V2 Features
+        ("Phase 5 - Storm Guard: 3s Sliding Window Fingerprint Deduplication", test_storm_guard_sliding_window_deduplication),
+        ("Phase 6 - Closed Loop: Escalation Ladder Action Mapping", test_escalation_ladder_mapping),
+        ("Phase 7 - Telemetry: Prometheus Exposition Format", test_telemetry_prometheus_exporter),
+        # Phase 8: V3 Features (PostMortem & Shadow Mode)
+        ("Phase 8 - Post-Mortem: Markdown & Timeline Generation", test_postmortem_engine_markdown_generation),
+        ("Phase 8 - Shadow Mode: Scoreboard Evaluation", test_shadow_mode_dry_run_and_scoreboard),
+        # Phase 9: V4 Topology Graph & Cascade Suppressor
+        ("Phase 9 - Topology: Multi-hop Directed Traversal", test_topology_graph_multi_hop_traversal),
+        ("Phase 9 - Cascade: Upstream Victim Shielding Check", test_cascade_suppression_victim_shielding),
+        # Phase 10: V5 UI & CLI
+        ("Phase 10 - UI: HTML Content Structure Validation", test_ui_html_content_structure),
+        ("Phase 10 - CLI: View Helpers Safety Check", test_cli_view_postmortem_and_scoreboard),
     ]
 
     async_tests = [
@@ -69,14 +118,29 @@ async def main():
         ("Phase 2 - DB Executor: Blocker Targeted Kill", test_db_executor_integration),
         # Phase 4: Human Approval Flow
         ("Phase 4 - Approval API: Operator Authorization Flow", test_human_approval_api_endpoint_flow),
+        # Phase 6: Closed Loop Probes
+        ("Phase 6 - Closed Loop: Verification Recovery Success", test_closed_loop_verification_recovery_success),
+        ("Phase 6 - Closed Loop: Unresolved Incident Escalates to Next Tier", test_closed_loop_verification_unresolved_escalation),
+        ("Phase 5 - E2E Webhook: Alert Storm Batch Deduplication", test_alertmanager_webhook_storm_deduplication_e2e),
+        # Phase 8: V3 Restorer
+        ("Phase 8 - Restorer: Traffic & Scale-in Reversal", test_service_restorer_traffic_and_scale),
+        ("Phase 8 - Restorer API: POST /v1/sentry/restore Flow", test_restore_endpoint_flow),
+        # Phase 9: V4 Cascade Pipeline & API
+        ("Phase 9 - Pipeline: E2E Cascading Failure Suppression", test_end_to_end_topology_cascade_pipeline),
+        ("Phase 9 - Topology API: Endpoints & Edge Addition", test_topology_api_endpoints),
+        # Phase 10: V5 UI & CLI Async Simulators
+        ("Phase 10 - UI API: GET /ui Endpoint 200 OK", test_ui_endpoint_response),
+        ("Phase 10 - CLI Chaos: Deadlock Simulation", test_cli_chaos_deadlock_simulation),
+        ("Phase 10 - CLI Chaos: Cascade Simulation", test_cli_chaos_cascade_simulation),
+        ("Phase 10 - CLI Chaos: OOM Simulation", test_cli_chaos_oom_simulation),
     ]
 
     passed = 0
     failed = 0
 
-    print("=" * 70)
-    print("AIOps-Sentry Full Production Test Suite (Phase 1 -> Phase 4)")
-    print("=" * 70)
+    print("=" * 85)
+    print("AIOps-Sentry Full Production Test Suite (Phase 1 -> Phase 10 / V5 Final)")
+    print("=" * 85)
 
     for name, func in sync_tests:
         try:
@@ -96,9 +160,9 @@ async def main():
             print(f"[FAIL] {name}: {e}")
             failed += 1
 
-    print("=" * 70)
+    print("=" * 85)
     print(f"Summary: {passed} passed, {failed} failed.")
-    print("=" * 70)
+    print("=" * 85)
 
     if failed > 0:
         sys.exit(1)
