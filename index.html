@@ -3,24 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AIOps-Sentry — Sub-100ms Cloud Healing</title>
-    <!-- Fonts from kinetic_design.html specification: Inter & Gaegu -->
+    <title>AIOps-Sentry — Industrial Self-Healing Control Plane</title>
+    
+    <!-- Google Fonts: Inter & JetBrains Mono (Exact specification from 06_Industrial Design Hub) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Gaegu:wght@400;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <!-- Mermaid JS for incident postmortem diagram rendering -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Mermaid JS for incident postmortem sequence flow -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 
     <style>
         :root {
-            --bg: #ffffff;
-            --fg: #111111;
-            --mint: #d7f1e1;
-            --peach: #ffe8d6;
-            --sky: #e0f2fe;
-            --lilac: #f3e8ff;
-            --shadow: rgba(0, 0, 0, 0.05) 0px 20px 50px;
-            --card-border: rgba(0, 0, 0, 0.04);
+            /* Industrial Design System Tokens (Extracted directly from 06_Industrial Design Hub) */
+            --bg-color: #0E0D0C;
+            --surface-color: rgba(28, 26, 25, 0.65);
+            --card-bg: rgba(35, 33, 32, 0.45);
+            --accent-glow: rgba(142, 136, 132, 0.15);
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --border-active: rgba(255, 255, 255, 0.12);
+            
+            --text-primary: #DCD6D1;
+            --text-secondary: #8E8884;
+            --text-muted: #5C5855;
+
+            /* SRE Status Accents (Refined Industrial Tones) */
+            --status-green: #A8C69F;
+            --status-amber: #C6C19F;
+            --status-red: #C6A89F;
+            --status-purple: #A8B2C6;
+            --status-cyan: #9FC6C5;
+            
+            --radius-lg: 24px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+            
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', 'IBM Plex Mono', monospace;
         }
 
         * {
@@ -31,326 +49,472 @@
         }
 
         body {
-            background: var(--bg);
-            color: var(--fg);
-            font-family: 'Inter', sans-serif;
-            overflow: hidden; 
-            height: 100vh;
-            width: 100vw;
-            cursor: default;
-        }
-
-        .canvas {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 50% -20%, rgba(142, 136, 132, 0.12) 0%, transparent 50%),
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 80px 80px, 80px 80px;
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            min-height: 100vh;
+            padding: 40px 24px;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            flex-direction: column;
+            gap: 24px;
         }
 
-        /* Top Navigation */
-        nav {
-            position: fixed;
-            top: 40px;
-            left: 40px;
-            right: 40px;
+        .app-shell {
+            max-width: 1440px;
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        /* Top Industrial Header */
+        header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            z-index: 1000;
-        }
-
-        .logo {
-            font-family: 'Gaegu', cursive;
-            font-size: 32px;
-            font-weight: 700;
-            letter-spacing: -1px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--fg);
-            text-decoration: none;
-        }
-
-        .logo span.badge {
-            font-family: 'Inter', sans-serif;
-            font-size: 11px;
-            font-weight: 600;
-            background: var(--sky);
-            color: #0284c7;
-            padding: 3px 10px;
-            border-radius: 100px;
-            letter-spacing: 0;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 32px;
-            font-size: 13px;
-            font-weight: 500;
-            color: #888;
-            align-items: center;
-        }
-
-        .nav-links a {
-            text-decoration: none;
-            color: inherit;
-            transition: color 0.2s;
-        }
-
-        .nav-links a:hover {
-            color: var(--fg);
-        }
-
-        /* Hero Section */
-        .hero {
-            text-align: center;
-            max-width: 580px;
-            z-index: 10;
-            pointer-events: none;
-        }
-
-        .hero h1 {
-            font-family: 'Gaegu', cursive;
-            font-size: 72px;
-            line-height: 0.9;
-            margin-bottom: 24px;
-            letter-spacing: -1px;
-        }
-
-        .search-trigger {
-            display: inline-flex;
-            align-items: center;
-            padding: 14px 28px;
-            background: #f5f5f5;
-            border-radius: 100px;
-            gap: 12px;
-            color: #666;
-            font-size: 14px;
-            font-weight: 500;
-            pointer-events: auto;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-            border: 1px solid rgba(0,0,0,0.04);
-        }
-
-        .search-trigger:hover {
-            transform: scale(1.03);
-            background: #ededed;
-            color: var(--fg);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.07);
-        }
-
-        /* Kinetic Cards */
-        .card {
-            position: absolute;
-            background: white;
-            padding: 24px;
-            border-radius: 32px;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--card-border);
-            width: 250px;
-            transition: transform 0.1s ease-out;
-            cursor: grab;
-            user-select: none;
-        }
-
-        .card:active { cursor: grabbing; }
-
-        .card-label {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 100px;
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 16px;
-        }
-
-        .card h3 {
-            font-size: 18px;
-            font-weight: 600;
-            line-height: 1.3;
-            margin-bottom: 8px;
-            color: var(--fg);
-        }
-
-        .card p {
-            font-size: 13px;
-            color: #666;
-            line-height: 1.5;
-        }
-
-        .stat {
-            margin-top: 16px;
-            font-size: 24px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--fg);
-        }
-
-        .stat span {
-            font-size: 12px;
-            color: #10b981;
-            background: #ecfdf5;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: 500;
-        }
-
-        /* Positions & Rotations (as specified in kinetic_design.html) */
-        #card-1 { top: 12%; left: 9%; background: var(--sky); transform: rotate(-3deg); }
-        #card-2 { top: 16%; right: 10%; background: var(--peach); transform: rotate(2deg); }
-        #card-3 { bottom: 14%; left: 13%; background: var(--mint); transform: rotate(4deg); }
-        #card-4 { bottom: 18%; right: 9%; background: var(--lilac); transform: rotate(-2deg); }
-        #card-5 { top: 46%; left: 5%; width: 220px; }
-        #card-6 { bottom: 40%; right: 5%; width: 270px; }
-
-        .growth-curve {
-            width: 100%;
-            height: 40px;
-            margin-top: 12px;
-        }
-
-        .dot {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #ddd;
-            z-index: 1;
-        }
-
-        .annotation {
-            position: absolute;
-            font-family: 'Gaegu', cursive;
-            font-size: 20px;
-            color: #999;
-            pointer-events: none;
-            letter-spacing: -0.5px;
-        }
-
-        /* Footer CTA Button */
-        .footer-cta {
-            position: fixed;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 100;
-            display: flex;
+            padding: 0 8px;
+            flex-wrap: wrap;
             gap: 16px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 14px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .brand-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--text-primary);
+            mask: radial-gradient(circle at 50% 50%, black 20%, transparent 25%), 
+                  conic-gradient(from 0deg, transparent 0deg 45deg, black 90deg 135deg, transparent 180deg 225deg, black 270deg 315deg, transparent 360deg);
+            -webkit-mask: radial-gradient(circle at 50% 50%, black 15%, transparent 20%), 
+                          conic-gradient(from 45deg, black 0%, transparent 25%, black 50%, transparent 75%, black 100%);
+            border-radius: 50%;
+        }
+
+        nav {
+            display: flex;
+            background: var(--surface-color);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 4px;
+            border-radius: 40px;
+            border: 1px solid var(--border-subtle);
+            gap: 2px;
+        }
+
+        nav button {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 8px 18px;
+            font-size: 13px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: var(--font-main);
+            font-weight: 500;
+        }
+
+        nav button.active, nav button:hover {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 12px;
             align-items: center;
         }
 
         .btn-primary {
-            background: var(--fg);
-            color: white;
-            padding: 16px 32px;
-            border-radius: 100px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 15px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            cursor: pointer;
+            background: var(--text-primary);
+            color: var(--bg-color);
             border: none;
+            padding: 10px 22px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
         }
 
         .btn-primary:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+            background: #ffffff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255,255,255,0.15);
         }
 
-        .arrow-circle {
-            width: 24px;
-            height: 24px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 50%;
+        .btn-ghost {
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            padding: 9px 18px;
+            border-radius: 40px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-ghost:hover {
+            color: var(--text-primary);
+            border-color: var(--border-active);
+            background: rgba(255,255,255,0.03);
+        }
+
+        /* Top 3 KPI Summary Cards */
+        .dashboard-summary {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-summary {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--surface-color);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-active), transparent);
+        }
+
+        .card-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-value {
+            font-size: 36px;
+            font-weight: 300;
+            letter-spacing: -0.02em;
+            font-family: var(--font-mono);
+            color: #ffffff;
+        }
+
+        .card-subtext {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+
+        .progress-visual {
+            margin-top: 24px;
+            height: 36px;
+            background: rgba(0,0,0,0.25);
+            border-radius: var(--radius-sm);
+            position: relative;
+            border: 1px solid var(--border-subtle);
+            overflow: hidden;
             display: flex;
             align-items: center;
-            justify-content: center;
+            padding: 0 12px;
         }
 
-        .btn-secondary {
-            background: white;
-            color: var(--fg);
-            padding: 15px 26px;
-            border-radius: 100px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
+        .progress-bar {
+            position: absolute;
+            top: 0; left: 0; bottom: 0;
+            background: linear-gradient(90deg, transparent, var(--text-secondary));
+            width: 88%;
+            opacity: 0.35;
+            transition: width 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .progress-label {
+            position: relative;
+            z-index: 2;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-primary);
             display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        /* Precision Engineering Crosshairs */
+        .crosshair {
+            position: absolute;
+            width: 11px;
+            height: 11px;
+            pointer-events: none;
+        }
+
+        .crosshair::before, .crosshair::after {
+            content: '';
+            position: absolute;
+            background: var(--text-muted);
+        }
+
+        .crosshair::before { top: 5px; left: 0; width: 11px; height: 1px; }
+        .crosshair::after { left: 5px; top: 0; width: 1px; height: 11px; }
+
+        /* Middle Grid: Microservice Call-Graph Topology & Flight Deck */
+        .dual-control-grid {
+            display: grid;
+            grid-template-columns: 7fr 5fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1100px) {
+            .dual-control-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* SRE Microservice Reporting Hub (Table Section) */
+        .reporting-section {
+            background: var(--surface-color);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 8px;
+            position: relative;
+        }
+
+        .reporting-section::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-active), transparent);
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px 24px 16px 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .table-header h2 {
+            font-size: 15px;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-primary);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            text-align: left;
+            padding: 16px 24px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 10px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        td {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+            vertical-align: middle;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: rgba(255,255,255,0.02);
+        }
+
+        .status-pill {
+            display: inline-flex;
             align-items: center;
             gap: 8px;
-            border: 1px solid rgba(0,0,0,0.08);
-            box-shadow: var(--shadow);
-            transition: all 0.3s;
-            cursor: pointer;
+            padding: 5px 12px;
+            background: var(--card-bg);
+            border-radius: 20px;
+            font-size: 11px;
+            border: 1px solid var(--border-subtle);
+            font-family: var(--font-mono);
+            letter-spacing: 0.02em;
         }
 
-        .btn-secondary:hover {
-            background: #fafafa;
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+            box-shadow: 0 0 8px var(--text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .tech-specs {
+            display: flex;
+            gap: 16px;
+        }
+
+        .spec-item {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .spec-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .spec-value {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-primary);
+        }
+
+        .budget-bar-container {
+            width: 120px;
+            height: 4px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 2px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+
+        .budget-bar {
+            height: 100%;
+            background: var(--text-secondary);
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+
+        /* Flight Deck (Chaos Cockpit) Tiles */
+        .flight-deck-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .action-tile {
+            background: var(--card-bg);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 96px;
+        }
+
+        .action-tile:hover {
+            border-color: var(--border-active);
+            background: rgba(45, 43, 42, 0.6);
             transform: translateY(-2px);
         }
 
-        /* Simulation Trigger Buttons in Card 5 */
-        .trigger-pill {
+        .action-tile .tile-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            width: 100%;
-            padding: 8px 12px;
-            margin-bottom: 8px;
-            background: #f8fafc;
-            border: 1px solid rgba(0,0,0,0.05);
-            border-radius: 100px;
+        }
+
+        .action-tile .tile-desc {
             font-size: 11px;
-            font-weight: 600;
-            color: #475569;
-            cursor: pointer;
-            transition: all 0.2s;
+            color: var(--text-muted);
+            margin-top: 6px;
+            line-height: 1.35;
         }
 
-        .trigger-pill:hover {
-            background: #f1f5f9;
-            color: var(--fg);
-            transform: translateX(2px);
+        .action-tile .tile-foot {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 8px;
         }
 
-        /* Mini Terminal Feed in Card 6 */
-        .feed-container {
-            margin-top: 10px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 10.5px;
-            color: #475569;
-            background: #f8fafc;
-            border-radius: 16px;
-            padding: 12px;
-            max-height: 120px;
+        /* Live Terminal Feed Stream */
+        .terminal-box {
+            background: #080706;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            height: 180px;
             overflow-y: auto;
-            line-height: 1.5;
-            border: 1px solid rgba(0,0,0,0.04);
+            line-height: 1.6;
+            margin-top: 16px;
         }
 
-        /* Floating Modal / Whitepaper Drawer */
+        .terminal-box div {
+            margin-bottom: 4px;
+        }
+
+        /* Mermaid Whitepaper Modal */
         .modal-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(8px);
+            background: rgba(14, 13, 12, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             z-index: 2000;
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 24px;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s ease;
@@ -362,239 +526,414 @@
         }
 
         .modal-card {
-            background: white;
-            border-radius: 36px;
+            background: #141312;
+            border: 1px solid var(--border-active);
+            border-radius: var(--radius-lg);
             padding: 36px;
-            max-width: 800px;
-            width: 90%;
-            max-height: 85vh;
+            max-width: 880px;
+            width: 100%;
+            max-height: 88vh;
             overflow-y: auto;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.2);
-            transform: scale(0.95);
-            transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
             position: relative;
-        }
-
-        .modal-overlay.active .modal-card {
-            transform: scale(1);
         }
 
         .modal-close {
             position: absolute;
             top: 24px;
             right: 24px;
-            width: 36px;
-            height: 36px;
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
-            background: #f1f5f9;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            border: none;
-            font-size: 18px;
-            color: #64748b;
-            transition: background 0.2s;
+            transition: all 0.2s ease;
         }
 
         .modal-close:hover {
-            background: #e2e8f0;
-            color: var(--fg);
+            color: var(--text-primary);
+            border-color: var(--border-active);
         }
 
-        /* Toast notification */
-        .toast {
-            position: fixed;
-            top: 100px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-20px);
-            background: var(--fg);
-            color: white;
-            padding: 10px 24px;
-            border-radius: 100px;
-            font-size: 13px;
-            font-weight: 500;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-            opacity: 0;
-            pointer-events: none;
-            transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
-            z-index: 3000;
+        /* Footer */
+        footer {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 8px;
-        }
-
-        .toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
+            padding: 20px 8px;
+            color: var(--text-muted);
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-family: var(--font-mono);
+            border-top: 1px solid var(--border-subtle);
+            flex-wrap: wrap;
+            gap: 12px;
         }
     </style>
 </head>
 <body>
 
-    <!-- ================= TOP NAVIGATION ================= -->
-    <nav>
-        <a href="#" class="logo">
-            Sentry.
-            <span class="badge">AIOps Autonomous Kernel</span>
-        </a>
-        <div class="nav-links">
-            <a href="javascript:void(0)" onclick="openModal()">Whitepaper</a>
-            <a href="https://github.com/jjy0230/aiops-sentry/pulls" target="_blank">Pull Requests</a>
-            <a href="https://github.com/jjy0230/aiops-sentry" target="_blank">GitHub Repo</a>
-        </div>
-        <div style="width: 80px;"></div> 
-    </nav>
+    <div class="app-shell">
+        <!-- ================= HEADER ================= -->
+        <header>
+            <div class="brand">
+                <div class="brand-icon"></div>
+                <span>Sentry.OS // Industrial Control Plane</span>
+            </div>
+            
+            <nav id="main-nav">
+                <button class="active" onclick="switchNav('overview')">Overview</button>
+                <button onclick="switchNav('topology')">Microservice Topology</button>
+                <button onclick="switchNav('kernel')">Jev Decision Kernel</button>
+                <button onclick="switchNav('chaos')">Chaos Simulator</button>
+                <button onclick="openModal()">Incident Whitepaper</button>
+            </nav>
 
-    <!-- ================= KINETIC CANVAS ================= -->
-    <div class="canvas" id="canvas">
-        
-        <!-- Center Hero Section -->
-        <div class="hero">
-            <h1>sub-100ms<br>cloud healing</h1>
-            <div class="search-trigger" id="hero-trigger" onclick="runChaos('deadlock')">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-                <span id="hero-trigger-text">Inject P0 Deadlock &amp; watch auto-heal...</span>
-            </div>
-        </div>
-
-        <!-- ================= CARD 1: Jev Decision Kernel ================= -->
-        <div class="card" id="card-1" style="z-index: 5;">
-            <div class="card-label" style="background: #bae6fd; color: #0369a1;">Jev Decision Kernel</div>
-            <h3 id="c1-title">Sub-18ms Prefill</h3>
-            <p id="c1-desc">Single-pass forward logits. 0 token generation decoding latency.</p>
-            <div class="growth-curve">
-                <svg width="100%" height="100%" viewBox="0 0 100 40" preserveAspectRatio="none">
-                    <path id="curve-path" d="M0 40 Q 25 35, 50 18 T 100 5" fill="none" stroke="#0ea5e9" stroke-width="3" stroke-linecap="round"></path>
-                </svg>
-            </div>
-            <div class="stat" id="stat-latency">
-                18.4ms <span id="stat-latency-badge" style="color: #0284c7; background: #e0f2fe;">P99 Speed</span>
-            </div>
-        </div>
-
-        <!-- ================= CARD 2: Lock DAG Solver ================= -->
-        <div class="card" id="card-2" style="z-index: 4;">
-            <div class="card-label" style="background: #fed7aa; color: #9a3412;">Lock DAG Solver</div>
-            <h3 id="c2-title">Root Blocker Killer</h3>
-            <div class="stat" id="stat-accuracy">
-                100% <span style="color: #ea580c; background: #ffedd5;">Precision</span>
-            </div>
-            <p id="c2-desc" style="margin-top: 12px;">Wait-for Graph cycle breaker. Zero innocent victim transactions killed.</p>
-        </div>
-
-        <!-- ================= CARD 3: Microservice Call-Graph Topology ================= -->
-        <div class="card" id="card-3" style="z-index: 3;">
-            <div class="card-label" style="background: #bbf7d0; color: #15803d;">Microservice Call-Graph Topology</div>
-            <h3 id="c3-title">Cascade Suppression</h3>
-            <p id="c3-desc">Upstream callers shielded during downstream P0 failure.</p>
-            <div style="display: flex; gap: 6px; margin-top: 14px; font-size: 11px; font-weight: 500; align-items: center;" id="topo-flow">
-                <div style="background: #ffffff; padding: 4px 8px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.04);">Order</div>
-                <div style="color: #10b981; font-size: 13px;">➔</div>
-                <div style="background: #ffffff; padding: 4px 8px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.04); color: #059669; font-weight: 600;">Payment</div>
-                <div style="color: #10b981; font-size: 13px;">➔</div>
-                <div style="background: #ffffff; padding: 4px 8px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.04);">MySQL</div>
-            </div>
-        </div>
-
-        <!-- ================= CARD 4: Safety Envelope ================= -->
-        <div class="card" id="card-4" style="z-index: 2;">
-            <div class="card-label" style="background: #e9d5ff; color: #7e22ce;">Safety Envelope</div>
-            <h3 id="c4-title">Static Invariants</h3>
-            <p id="c4-desc">Rate-limit &amp; flapping guards halt loops before database corruption.</p>
-            <div class="stat" id="stat-safety">
-                180s <span style="color: #7c3aed; background: #f5f3ff;">Lease Window</span>
-            </div>
-        </div>
-
-        <!-- ================= CARD 5: Interactive Chaos Simulator ================= -->
-        <div class="card" id="card-5" style="z-index: 6;">
-            <div class="card-label" style="background: #f1f5f9; color: #334155;">Interactive Chaos Simulator</div>
-            <h3 style="font-size: 16px;">Flight Deck</h3>
-            <div style="margin-top: 12px;">
-                <div class="trigger-pill" onclick="runChaos('deadlock')">
-                    <span>🔴 MySQL Deadlock</span>
-                    <span style="font-size: 9px; color: #dc2626;">P0</span>
-                </div>
-                <div class="trigger-pill" onclick="runChaos('cascade')">
-                    <span>🟣 Cascade Shield</span>
-                    <span style="font-size: 9px; color: #9333ea;">DAG</span>
-                </div>
-                <div class="trigger-pill" onclick="runChaos('oom')">
-                    <span>🔵 JVM Heap OOM</span>
-                    <span style="font-size: 9px; color: #2563eb;">Pod</span>
-                </div>
-                <div class="trigger-pill" onclick="runRestore()">
-                    <span>🔄 Reverse Restore</span>
-                    <span style="font-size: 9px; color: #059669;">Undo</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- ================= CARD 6: Live SRE Audit Stream ================= -->
-        <div class="card" id="card-6" style="z-index: 6;">
-            <div class="card-label" style="background: #f1f5f9; color: #334155;">Live SRE Audit</div>
-            <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                <h3 style="font-size: 16px;">Autonomous Feed</h3>
-                <span style="font-size: 11px; color: #10b981; font-weight: 600;">● Online</span>
-            </div>
-            <div class="feed-container" id="live-feed">
-                <div>[SYSTEM] Sentry kernel initialized. Standing by for alert webhooks...</div>
-            </div>
-            <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-                <a href="javascript:void(0)" onclick="openModal()" style="font-size: 12px; color: #0284c7; text-decoration: none; font-weight: 600;">
-                    View Whitepaper &amp; DAG ↗
+            <div class="user-actions">
+                <a href="https://github.com/jjy0230/aiops-sentry" target="_blank" class="btn-ghost">
+                    GitHub Repo
                 </a>
-                <span style="font-size: 11px; color: #94a3b8; font-family: 'JetBrains Mono', monospace;" id="mttr-tag">MTTR: 68ms</span>
+                <button class="btn-primary" onclick="triggerChaos('deadlock')">
+                    Trigger P0 Deadlock Test
+                </button>
             </div>
-        </div>
+        </header>
 
-        <!-- ================= PLAYFUL GAEGU ANNOTATIONS ================= -->
-        <div class="annotation" style="top: 28%; left: 24%;">← sub-18ms jev prefill</div>
-        <div class="annotation" style="top: 25%; right: 26%;">lock DAG cycle breaker →</div>
-        <div class="annotation" style="bottom: 28%; left: 26%; transform: rotate(-4deg);">victim shielded from 504 🛡️</div>
-        <div class="annotation" style="bottom: 26%; right: 24%; transform: rotate(3deg);">anti-flapping boundary →</div>
-        <div class="annotation" style="top: 66%; left: 45%; font-size: 18px; color: #bbb;">drag any card freely ✨</div>
-
-        <!-- ================= FLOATING BACKGROUND SINE DOTS ================= -->
-        <div class="dot" style="top: 10%; left: 42%;"></div>
-        <div class="dot" style="bottom: 18%; left: 58%;"></div>
-        <div class="dot" style="top: 75%; left: 6%;"></div>
-        <div class="dot" style="top: 45%; right: 14%;"></div>
-        <div class="dot" style="top: 20%; left: 4%;"></div>
-        <div class="dot" style="bottom: 12%; right: 4%;"></div>
-    </div>
-
-    <!-- ================= FIXED FOOTER CTA ================= -->
-    <div class="footer-cta">
-        <button class="btn-primary" onclick="runChaos('deadlock')">
-            Trigger Self-Healing
-            <div class="arrow-circle">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14m-7-7 7 7-7 7"></path></svg>
+        <!-- ================= TOP 3 KPI SUMMARY CARDS ================= -->
+        <section class="dashboard-summary">
+            <!-- Card 1: Jev Arbitration Throughput -->
+            <div class="card" id="card-throughput">
+                <div>
+                    <span class="card-label">
+                        <span>Jev Decision Kernel Latency</span>
+                        <span style="font-family: var(--font-mono); color: var(--status-cyan);" id="kpi-jev-status">PREFILL ~18ms</span>
+                    </span>
+                    <div class="card-value" id="kpi-latency">18.4 <span style="font-size: 18px; color: var(--text-secondary); font-weight: 400;">ms</span></div>
+                    <div class="card-subtext">Single-pass logits extraction on AnyJev-7B. Zero token generation lag.</div>
+                </div>
+                <div class="progress-visual">
+                    <div class="progress-bar" id="kpi-progress-bar" style="width: 88%;"></div>
+                    <div class="progress-label">
+                        <span>P99 Arbitration Confidence</span>
+                        <span id="kpi-confidence">88.5% (FORCE_KILL_TX)</span>
+                    </div>
+                </div>
+                <div class="crosshair" style="top: 20px; right: 20px;"></div>
             </div>
-        </button>
-        <button class="btn-secondary" onclick="openModal()">
-            Inspect Incident Whitepaper
-        </button>
+
+            <!-- Card 2: Lock DAG Root Blocker Precision -->
+            <div class="card" id="card-dag">
+                <div>
+                    <span class="card-label">
+                        <span>Lock DAG Cycle Resolution</span>
+                        <span style="font-family: var(--font-mono); color: var(--status-green);">Active</span>
+                    </span>
+                    <div class="card-value" id="kpi-precision">100%</div>
+                    <div class="card-subtext">Wait-for graph root blocker elimination. Zero innocent transactions killed.</div>
+                </div>
+                <div style="margin-top: 16px; font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary);" id="dag-sub-indicator">
+                    Root Blocker: <span style="color: var(--text-primary);" id="dag-root-id">Tx #1024</span> (Holding 32.5s)
+                </div>
+                <div class="crosshair" style="bottom: 20px; left: 20px;"></div>
+            </div>
+
+            <!-- Card 3: Cascade Victim Shielding -->
+            <div class="card" id="card-shield">
+                <div>
+                    <span class="card-label">
+                        <span>Topology Cascade Shield</span>
+                        <span style="font-family: var(--font-mono); color: var(--status-purple);">Window: 30s</span>
+                    </span>
+                    <div class="card-value" id="kpi-shield">ARMED</div>
+                    <div class="card-subtext">Upstream callers shielded from destructive restarts during downstream P0.</div>
+                </div>
+                <div style="margin-top: 16px; font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary);" id="shield-sub-indicator">
+                    Suppression Mode: <span style="color: var(--status-green);">Non-Destructive SRE</span>
+                </div>
+                <div class="crosshair" style="bottom: 20px; right: 20px;"></div>
+            </div>
+        </section>
+
+        <!-- ================= SRE REPORTING HUB & FLEET TOPOLOGY TABLE ================= -->
+        <section class="reporting-section" id="section-topology">
+            <div class="table-header">
+                <div>
+                    <h2>Microservice Call-Graph Topology &amp; Health Hub</h2>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Real-time directed dependency chain with autonomic self-healing probes.</p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 6px 14px; border-radius: 4px; font-size: 11px; cursor: pointer;" onclick="runRestore()">Scale-In Restorer</button>
+                    <button style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 6px 14px; border-radius: 4px; font-size: 11px; cursor: pointer;" onclick="openModal()">Export Whitepaper</button>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Microservice Entity</th>
+                        <th>Technical Status</th>
+                        <th>Autonomic Action</th>
+                        <th>Resource Allocation</th>
+                        <th>System Diagnostics</th>
+                    </tr>
+                </thead>
+                <tbody id="fleet-table-body">
+                    <!-- Row 1: Order Service -->
+                    <tr id="row-order">
+                        <td>
+                            <div style="font-weight: 500;">order-service</div>
+                            <div style="font-size: 11px; color: var(--text-muted);">Upstream Ingress Caller</div>
+                        </td>
+                        <td>
+                            <div class="status-pill" id="order-status-pill">
+                                <div class="status-dot" id="order-status-dot" style="background: var(--status-green); box-shadow: 0 0 8px var(--status-green);"></div>
+                                <span id="order-status-text">Healthy</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="font-size: 11px; margin-bottom: 4px;" id="order-action-text">No Action Needed</div>
+                            <div class="budget-bar-container">
+                                <div class="budget-bar" id="order-bar" style="width: 33%; background: var(--status-green);"></div>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="font-family: var(--font-mono); font-size: 12px;" id="order-pods">3 Replicas (v2.4)</div>
+                        </td>
+                        <td>
+                            <div class="tech-specs">
+                                <div class="spec-item">
+                                    <span class="spec-label">QPS</span>
+                                    <span class="spec-value" id="order-qps">1,240</span>
+                                </div>
+                                <div class="spec-item">
+                                    <span class="spec-label">P99</span>
+                                    <span class="spec-value" id="order-p99">14.2ms</span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Row 2: Payment Service -->
+                    <tr id="row-payment">
+                        <td>
+                            <div style="font-weight: 500;">payment-service</div>
+                            <div style="font-size: 11px; color: var(--text-muted);">Root Transaction Core</div>
+                        </td>
+                        <td>
+                            <div class="status-pill" id="payment-status-pill">
+                                <div class="status-dot" id="payment-status-dot" style="background: var(--status-green); box-shadow: 0 0 8px var(--status-green);"></div>
+                                <span id="payment-status-text">Healthy</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="font-size: 11px; margin-bottom: 4px;" id="payment-action-text">Standby</div>
+                            <div class="budget-bar-container">
+                                <div class="budget-bar" id="payment-bar" style="width: 25%; background: var(--status-green);"></div>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="font-family: var(--font-mono); font-size: 12px;" id="payment-pods">2 Replicas</div>
+                        </td>
+                        <td>
+                            <div class="tech-specs">
+                                <div class="spec-item">
+                                    <span class="spec-label">DB CONNS</span>
+                                    <span class="spec-value" id="payment-conns">12 / 100</span>
+                                </div>
+                                <div class="spec-item">
+                                    <span class="spec-label">LOCK WAIT</span>
+                                    <span class="spec-value" id="payment-locks">0.0s</span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Row 3: Payment MySQL Database -->
+                    <tr id="row-mysql">
+                        <td>
+                            <div style="font-weight: 500;">payment-mysql</div>
+                            <div style="font-size: 11px; color: var(--text-muted);">InnoDB Cluster Primary</div>
+                        </td>
+                        <td>
+                            <div class="status-pill" id="mysql-status-pill">
+                                <div class="status-dot" id="mysql-status-dot" style="background: var(--status-green); box-shadow: 0 0 8px var(--status-green);"></div>
+                                <span id="mysql-status-text">Optimal</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="font-size: 11px; margin-bottom: 4px;" id="mysql-action-text">Lock Graph Clear</div>
+                            <div class="budget-bar-container">
+                                <div class="budget-bar" id="mysql-bar" style="width: 15%; background: var(--status-green);"></div>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="font-family: var(--font-mono); font-size: 12px;">Primary + 2 Read</div>
+                        </td>
+                        <td>
+                            <div class="tech-specs">
+                                <div class="spec-item">
+                                    <span class="spec-label">WAIT-FOR</span>
+                                    <span class="spec-value" id="mysql-waitfor">0 Cycles</span>
+                                </div>
+                                <div class="spec-item">
+                                    <span class="spec-label">BUFFER POOL</span>
+                                    <span class="spec-value">94.2%</span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Row 4: Inventory Service -->
+                    <tr id="row-inventory">
+                        <td>
+                            <div style="font-weight: 500;">inventory-service</div>
+                            <div style="font-size: 11px; color: var(--text-muted);">Stock &amp; Fulfillment API</div>
+                        </td>
+                        <td>
+                            <div class="status-pill" id="inv-status-pill">
+                                <div class="status-dot" id="inv-status-dot" style="background: var(--status-green); box-shadow: 0 0 8px var(--status-green);"></div>
+                                <span id="inv-status-text">Healthy</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="font-size: 11px; margin-bottom: 4px;" id="inv-action-text">Monitoring Heap</div>
+                            <div class="budget-bar-container">
+                                <div class="budget-bar" id="inv-bar" style="width: 28%; background: var(--status-green);"></div>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="font-family: var(--font-mono); font-size: 12px;">2 Replicas</div>
+                        </td>
+                        <td>
+                            <div class="tech-specs">
+                                <div class="spec-item">
+                                    <span class="spec-label">HEAP</span>
+                                    <span class="spec-value" id="inv-heap">28.4%</span>
+                                </div>
+                                <div class="spec-item">
+                                    <span class="spec-label">GC PAUSE</span>
+                                    <span class="spec-value">4.2ms</span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- ================= DUAL GRID: FLIGHT DECK & SRE LIVE AUDIT STREAM ================= -->
+        <section class="dual-control-grid">
+            <!-- Left: Interactive Chaos Simulator (Flight Deck) -->
+            <div class="card" id="section-chaos">
+                <div>
+                    <span class="card-label">
+                        <span>Interactive Chaos Simulator</span>
+                        <span style="font-family: var(--font-mono); color: var(--status-cyan);">Sandbox Mode</span>
+                    </span>
+                    <h3 style="font-size: 18px; font-weight: 500;">Autonomic Verification Cockpit</h3>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Inject mission-critical faults into live services to observe sub-100ms self-healing.</p>
+                    
+                    <div class="flight-deck-grid">
+                        <!-- Module 1: Deadlock -->
+                        <div class="action-tile" onclick="triggerChaos('deadlock')">
+                            <div class="tile-title">
+                                <span>MySQL Deadlock Storm</span>
+                                <span style="color: var(--status-red); font-family: var(--font-mono);">P0</span>
+                            </div>
+                            <div class="tile-desc">HikariCP connection pool starvation. Triggers Lock DAG Root Blocker kill.</div>
+                            <div class="tile-foot">⚡ Inject &amp; Break Cycle →</div>
+                        </div>
+
+                        <!-- Module 2: Cascade Shield -->
+                        <div class="action-tile" onclick="triggerChaos('cascade')">
+                            <div class="tile-title">
+                                <span>Cascade Victim Shield</span>
+                                <span style="color: var(--status-purple); font-family: var(--font-mono);">DAG</span>
+                            </div>
+                            <div class="tile-desc">Downstream crashes with 504. Verifies order-service is shielded from restarts.</div>
+                            <div class="tile-foot">🛡️ Test Victim Protection →</div>
+                        </div>
+
+                        <!-- Module 3: JVM Heap OOM -->
+                        <div class="action-tile" onclick="triggerChaos('oom')">
+                            <div class="tile-title">
+                                <span>JVM Heap Exhaustion</span>
+                                <span style="color: var(--status-cyan); font-family: var(--font-mono);">OOM</span>
+                            </div>
+                            <div class="tile-desc">Heap reaches 98.7%. Jev prefill executes sub-20ms targeted RESTART_POD.</div>
+                            <div class="tile-foot">📈 Trigger Pod Eviction →</div>
+                        </div>
+
+                        <!-- Module 4: Reverse Restorer -->
+                        <div class="action-tile" onclick="runRestore()">
+                            <div class="tile-title">
+                                <span>Reverse Restorer</span>
+                                <span style="color: var(--status-green); font-family: var(--font-mono);">Undo</span>
+                            </div>
+                            <div class="tile-desc">Scans isolated pods, clears quarantine labels, reconnects traffic, scales in.</div>
+                            <div class="tile-foot">🔄 Clean &amp; Rebalance →</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="crosshair" style="top: 20px; right: 20px;"></div>
+            </div>
+
+            <!-- Right: Live SRE Remediation Audit Stream -->
+            <div class="card" id="section-audit">
+                <div>
+                    <div class="card-label">
+                        <span>Live SRE Remediation Audit Stream</span>
+                        <span style="font-family: var(--font-mono); color: var(--status-green);">● Active Stream</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                        <h3 style="font-size: 18px; font-weight: 500;">Autonomic Decision Log</h3>
+                        <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);" id="audit-count">Buffer: 4 Events</span>
+                    </div>
+
+                    <div class="terminal-box" id="audit-terminal">
+                        <div>[23:10:00.002] [SYSTEM] Sentry.OS v5.0 initialized in production cluster.</div>
+                        <div>[23:10:00.015] [SAFETY] Static Safety Envelopes armed: RateLimit=3/180s, Lease=Active.</div>
+                        <div>[23:10:00.038] [TOPOLOGY] Microservice call-graph constructed: 4 services, 5 directed edges.</div>
+                        <div style="color: var(--status-green);">[23:10:00.045] [STANDBY] Autonomous arbitrations ready. Standing by for alert webhooks.</div>
+                    </div>
+
+                    <div style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center;">
+                        <button class="btn-ghost" style="padding: 6px 14px; font-size: 11px;" onclick="clearAudit()">Clear Terminal</button>
+                        <button class="btn-ghost" style="padding: 6px 14px; font-size: 11px;" onclick="openModal()">Inspect Whitepaper ↗</button>
+                    </div>
+                </div>
+                <div class="crosshair" style="bottom: 20px; left: 20px;"></div>
+            </div>
+        </section>
+
+        <!-- ================= INDUSTRIAL FOOTER ================= -->
+        <footer>
+            <div>System: Sentry.OS 05.12.00 / Cluster ID: prod-us-east-k8s</div>
+            <div>Arbitration Engine: AnyJev-7B (Prefill Logits ~18ms)</div>
+            <div style="display: flex; gap: 24px;">
+                <span>Safety: Lease Guard Active</span>
+                <span>MTTR SLA: &lt; 85ms</span>
+                <a href="https://github.com/jjy0230/aiops-sentry" target="_blank" style="color: var(--text-secondary); text-decoration: none;">GitHub: jjy0230/aiops-sentry</a>
+            </div>
+        </footer>
     </div>
 
-    <!-- ================= TOAST NOTIFICATION ================= -->
-    <div class="toast" id="toast">
-        <svg width="16" height="16" fill="none" stroke="#10b981" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
-        <span id="toast-text">Autonomous remediation completed in 42ms.</span>
-    </div>
-
-    <!-- ================= WHITEPAPER & MERMAID MODAL ================= -->
+    <!-- ================= INCIDENT WHITEPAPER & MERMAID MODAL ================= -->
     <div class="modal-overlay" id="modal" onclick="closeModal(event)">
         <div class="modal-card" onclick="event.stopPropagation()">
             <button class="modal-close" onclick="closeModal()">×</button>
-            <div class="card-label" style="background: #e0f2fe; color: #0284c7; margin-bottom: 8px;">Architecture Whitepaper</div>
-            <h2 style="font-family: 'Gaegu', cursive; font-size: 42px; margin-bottom: 8px; letter-spacing: -0.5px;">SRE Autonomous Remediation Spec</h2>
-            <p style="color: #64748b; font-size: 14px; margin-bottom: 24px;">Sub-100ms arbitration lifecycle: Prometheus Annotation ➔ Jev Prefill Logits ➔ Lock DAG Resolution ➔ Health Probed Green.</p>
+            <span class="card-label" style="color: var(--status-cyan); margin-bottom: 8px;">Incident Whitepaper Spec</span>
+            <h2 style="font-size: 24px; font-weight: 500; margin-bottom: 8px;">Autonomous Remediation Timeline &amp; Architecture</h2>
+            <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 24px;">Sub-100ms arbitration lifecycle: Prometheus Alert ➔ Jev Prefill Logits ➔ Lock DAG Resolution ➔ Health Probed Green.</p>
 
             <!-- Rendered Mermaid Sequence Flow -->
-            <div style="background: #f8fafc; border-radius: 20px; padding: 20px; margin-bottom: 24px; border: 1px solid rgba(0,0,0,0.06);">
-                <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #94a3b8; margin-bottom: 12px; letter-spacing: 0.05em;">Execution Flow Sequence</div>
+            <div style="background: rgba(0,0,0,0.3); border-radius: var(--radius-md); padding: 20px; margin-bottom: 24px; border: 1px solid var(--border-subtle);">
+                <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.05em; font-family: var(--font-mono);">Automated Sequence Flow</div>
                 <pre class="mermaid" style="font-size: 12px;">
 sequenceDiagram
     autonumber
@@ -605,7 +944,7 @@ sequenceDiagram
     participant K8s as K8s Controller
 
     Prom->>Sentry: Alert: DeadlockStarvationExceeded (payment-service)
-    Note over Sentry: Single-Pass Prefill Logits: 88.5% KILL_TX
+    Note over Sentry: Single-Pass Prefill Logits: 88.5% FORCE_KILL_TX
     Sentry->>DAG: Inspect InnoDB Wait-for Graph
     DAG-->>Sentry: Root Blocker Identified: Tx #1024
     Sentry->>DB: KILL QUERY 1024 (8.2ms)
@@ -615,186 +954,177 @@ sequenceDiagram
             </div>
 
             <!-- Postmortem Summary -->
-            <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: #0f172a; color: #e2e8f0; padding: 20px; border-radius: 20px; line-height: 1.6; max-height: 200px; overflow-y: auto;">
-# SRE Incident Post-Mortem Whitepaper (inc-order-service-469da23d)
-Target Service: payment-service | MySQL Cluster
-Root Cause: HikariPool connection starvation caused by row lock contention.
+            <div style="font-family: var(--font-mono); font-size: 12px; background: #090807; color: var(--text-primary); padding: 20px; border-radius: var(--radius-md); line-height: 1.6; border: 1px solid var(--border-subtle);">
+# SRE Incident Post-Mortem Whitepaper (inc-payment-service-8492)
+Target Service: payment-service | MySQL InnoDB Cluster
+Root Cause: HikariPool connection starvation caused by unindexed row lock contention.
 Action Executed: FORCE_KILL_LONG_TRANSACTION (Thread #1024)
 Safety Envelopes: PASSED (Window rate: 1/3, Flapping cooldown: 180s)
-End-to-End MTTR: 68ms (SLA Breach Avoided: 100%)
+End-to-End MTTR: 68.4ms (SLA Breach Avoided: 100%)
             </div>
 
             <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
-                <a href="https://github.com/jjy0230/aiops-sentry" target="_blank" class="btn-primary" style="padding: 12px 24px; font-size: 13px;">
+                <a href="https://github.com/jjy0230/aiops-sentry" target="_blank" class="btn-primary" style="padding: 10px 22px; font-size: 12px;">
                     View on GitHub
                 </a>
             </div>
         </div>
     </div>
 
-    <!-- ================= SCRIPT: KINETIC PHYSICS & SRE SIMULATION ================= -->
+    <!-- ================= SCRIPT: SIMULATION & UI CONTROLS ================= -->
     <script>
-        // Initialize Mermaid
+        // Initialize Mermaid with Industrial Slate Theme
         mermaid.initialize({
             startOnLoad: true,
-            theme: 'default',
+            theme: 'dark',
             themeVariables: {
-                primaryColor: '#e0f2fe',
-                primaryTextColor: '#0f172a',
-                primaryBorderColor: '#38bdf8',
-                lineColor: '#64748b'
+                darkMode: true,
+                background: '#141312',
+                primaryColor: '#282624',
+                primaryTextColor: '#DCD6D1',
+                primaryBorderColor: '#8E8884',
+                lineColor: '#5C5855',
+                secondaryColor: '#1c1a19',
+                tertiaryColor: '#232120'
             }
         });
 
-        const cards = document.querySelectorAll('.card');
-        const dots = document.querySelectorAll('.dot');
-        const canvas = document.getElementById('canvas');
-
-        // Mouse Parallax Physics (from kinetic_design.html)
-        let mouseX = 0;
-        let mouseY = 0;
-
-        window.addEventListener('mousemove', (e) => {
-            mouseX = (e.clientX / window.innerWidth) - 0.5;
-            mouseY = (e.clientY / window.innerHeight) - 0.5;
-
-            cards.forEach((card, index) => {
-                if (card.dataset.isDragging === 'true') return;
-                const speed = (index + 1) * 15;
-                const x = mouseX * speed;
-                const y = mouseY * speed;
-                const rotation = card.id === 'card-1' || card.id === 'card-4' ? -3 : (card.id === 'card-2' ? 2 : (card.id === 'card-3' ? 4 : 0));
-                card.style.transform = `translate(${x}px, ${y}px) rotate(${rotation}deg)`;
-            });
-
-            dots.forEach((dot, index) => {
-                const speed = (index + 1) * 35;
-                const x = mouseX * speed;
-                const y = mouseY * speed;
-                dot.style.transform = `translate(${x}px, ${y}px)`;
-            });
-        });
-
-        // Draggable Physics (from kinetic_design.html)
-        cards.forEach(card => {
-            let isDragging = false;
-            let startX, startY, initialX, initialY;
-
-            card.addEventListener('mousedown', (e) => {
-                if (e.target.tagName.toLowerCase() === 'button' || e.target.classList.contains('trigger-pill') || e.target.tagName.toLowerCase() === 'a') return;
-                isDragging = true;
-                card.dataset.isDragging = 'true';
-                card.style.zIndex = 100;
-                startX = e.clientX;
-                startY = e.clientY;
-                const rect = card.getBoundingClientRect();
-                initialX = rect.left;
-                initialY = rect.top;
-            });
-
-            window.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                const dx = e.clientX - startX;
-                const dy = e.clientY - startY;
-                card.style.left = `${initialX + dx}px`;
-                card.style.top = `${initialY + dy}px`;
-                card.style.transform = `rotate(0deg) scale(1.04)`;
-            });
-
-            window.addEventListener('mouseup', () => {
-                if (isDragging) {
-                    isDragging = false;
-                    card.dataset.isDragging = 'false';
-                    card.style.transform = `scale(1)`;
-                }
-            });
-        });
-
-        // Background Breathing Sine Animation
-        function animate() {
-            const time = Date.now() * 0.001;
-            dots.forEach((dot, i) => {
-                dot.style.opacity = 0.25 + Math.sin(time + i) * 0.2;
-            });
-            requestAnimationFrame(animate);
-        }
-        animate();
-
-        // Feed & Simulation Logic
-        function addFeed(text, color = '#334155') {
-            const feed = document.getElementById('live-feed');
+        function appendAudit(msg, color = 'var(--text-secondary)') {
+            const term = document.getElementById('audit-terminal');
             const now = new Date();
-            const time = now.toTimeString().split(' ')[0];
+            const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
             const div = document.createElement('div');
             div.style.color = color;
-            div.style.marginBottom = '4px';
-            div.innerText = `[${time}] ${text}`;
-            feed.appendChild(div);
-            feed.scrollTop = feed.scrollHeight;
+            div.innerText = `[${timeStr}] ${msg}`;
+            term.appendChild(div);
+            term.scrollTop = term.scrollHeight;
         }
 
-        function showToast(text) {
-            const toast = document.getElementById('toast');
-            document.getElementById('toast-text').innerText = text;
-            toast.classList.add('show');
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
+        function clearAudit() {
+            document.getElementById('audit-terminal').innerHTML = '<div style="color: var(--text-muted);">[SYSTEM] Audit stream cleared. Standing by...</div>';
         }
 
-        // Chaos Scenarios
-        function runChaos(type) {
+        function switchNav(tab) {
+            document.querySelectorAll('#main-nav button').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            if (tab === 'overview' || tab === 'topology') {
+                document.getElementById('section-topology').scrollIntoView({ behavior: 'smooth' });
+            } else if (tab === 'chaos') {
+                document.getElementById('section-chaos').scrollIntoView({ behavior: 'smooth' });
+            } else if (tab === 'kernel') {
+                document.getElementById('card-throughput').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Fault Injection Scenarios
+        function triggerChaos(type) {
             if (type === 'deadlock') {
-                document.getElementById('hero-trigger-text').innerText = 'Arbitrating P0 Deadlock with Jev Kernel...';
-                addFeed('🚨 Prometheus Alert: DeadlockStarvation on payment-service!', '#dc2626');
+                appendAudit('🚨 [ALERT WEBHOOK] Prometheus Alert: DeadlockStarvationExceeded on payment-service!', 'var(--status-red)');
+                appendAudit('📊 [CONTEXT] Inlined 2KB annotation: HikariPool connection timeout, 10 waiting threads.', 'var(--text-muted)');
 
-                // Visual updates on cards
-                document.getElementById('c1-title').innerText = 'Arbitrating...';
-                document.getElementById('stat-latency').innerHTML = '18.4ms <span style="color:#0284c7; background:#e0f2fe;">KILL_TX 88.5%</span>';
+                // Update Row status
+                document.getElementById('payment-status-pill').style.borderColor = 'var(--status-red)';
+                document.getElementById('payment-status-dot').style.background = 'var(--status-red)';
+                document.getElementById('payment-status-dot').style.boxShadow = '0 0 10px var(--status-red)';
+                document.getElementById('payment-status-text').innerText = 'P0 Deadlock';
+                document.getElementById('payment-conns').innerText = '100 / 100 (Exhausted)';
+                document.getElementById('payment-locks').innerText = '32.5s';
+                document.getElementById('payment-action-text').innerText = 'Lock Contention';
+                document.getElementById('payment-bar').style.width = '100%';
+                document.getElementById('payment-bar').style.background = 'var(--status-red)';
+
+                document.getElementById('kpi-jev-status').innerText = 'ARBITRATING...';
 
                 setTimeout(() => {
-                    addFeed('🧠 [JEV PREFILL] Logits: FORCE_KILL_LONG_TRANSACTION (88.5%)', '#0284c7');
-                    addFeed('⚡ [LOCK DAG] Root Blocker Tx #1024 identified (Wait-for Cycle)', '#9333ea');
-                    addFeed('✓ [EXECUTOR] KILL QUERY 1024 executed. 10 waiting threads unblocked.', '#16a34a');
-                    
-                    document.getElementById('c1-title').innerText = 'Sub-18ms Prefill';
-                    document.getElementById('c2-desc').innerText = 'Killed Root Blocker Tx #1024. All 10 waiting threads unblocked.';
-                    document.getElementById('hero-trigger-text').innerText = '✨ Self-healed in 68ms! Click to test again...';
-                    showToast('Autonomous remediation completed in 68ms!');
+                    appendAudit('🧠 [JEV PREFILL ~18.4ms] Logits: FORCE_KILL_LONG_TRANSACTION (88.5%).', 'var(--status-cyan)');
+                    document.getElementById('kpi-latency').innerHTML = '18.4 <span style="font-size: 18px; color: var(--text-secondary); font-weight: 400;">ms</span>';
+                    document.getElementById('kpi-confidence').innerText = '88.5% (FORCE_KILL_TX)';
+
+                    setTimeout(() => {
+                        appendAudit('🔍 [LOCK DAG] Wait-for graph analyzed: Tx #1024 has max out-degree (Root Blocker).', 'var(--status-amber)');
+                        appendAudit('⚡ [DB SOP] Sent KILL QUERY 1024 to payment-mysql (Execution time: 8.2ms).', 'var(--status-green)');
+                        appendAudit('✓ [RESOLVED] 10 waiting transactions unblocked; pool starvation cleared.', 'var(--status-green)');
+
+                        // Recover table state
+                        document.getElementById('payment-status-pill').style.borderColor = 'var(--border-subtle)';
+                        document.getElementById('payment-status-dot').style.background = 'var(--status-green)';
+                        document.getElementById('payment-status-dot').style.boxShadow = '0 0 8px var(--status-green)';
+                        document.getElementById('payment-status-text').innerText = 'Remediated (42ms)';
+                        document.getElementById('payment-conns').innerText = '12 / 100';
+                        document.getElementById('payment-locks').innerText = '0.0s';
+                        document.getElementById('payment-action-text').innerText = 'Killed Tx #1024';
+                        document.getElementById('payment-bar').style.width = '25%';
+                        document.getElementById('payment-bar').style.background = 'var(--status-green)';
+
+                        document.getElementById('kpi-jev-status').innerText = 'PREFILL ~18ms';
+                    }, 400);
                 }, 300);
 
             } else if (type === 'cascade') {
-                addFeed('⚡ [ALERT] payment-service crashed. order-service reporting 504...', '#ea580c');
-                document.getElementById('hero-trigger-text').innerText = 'Cascade suppressor shielding upstream caller...';
+                appendAudit('⚡ [PHASE 1] Downstream payment-service crashes with unhandled fatal error...', 'var(--status-red)');
+                document.getElementById('payment-status-dot').style.background = 'var(--status-red)';
+                document.getElementById('payment-status-text').innerText = 'Outage';
 
                 setTimeout(() => {
-                    addFeed('🛑 [CASCADE SHIELD] order-service is upstream caller. Restarts suppressed!', '#9333ea');
-                    addFeed('🛡️ [VICTIM SAFE] Blocked destructive pod restarts and scaling.', '#16a34a');
-                    document.getElementById('hero-trigger-text').innerText = '🛡️ Upstream caller shielded from friendly fire!';
-                    showToast('Topology shield active: order-service protected from 504 cascade.');
+                    appendAudit('⚡ [PHASE 2] Upstream order-service starts reporting HTTP 504 Gateway Timeout!', 'var(--status-amber)');
+                    
+                    // Order service shielded
+                    document.getElementById('order-status-pill').style.borderColor = 'var(--status-purple)';
+                    document.getElementById('order-status-dot').style.background = 'var(--status-purple)';
+                    document.getElementById('order-status-dot').style.boxShadow = '0 0 8px var(--status-purple)';
+                    document.getElementById('order-status-text').innerText = '🛡️ Shielded (Victim)';
+                    document.getElementById('order-action-text').innerText = 'Restarts Suppressed';
+                    document.getElementById('order-bar').style.background = 'var(--status-purple)';
+
+                    setTimeout(() => {
+                        appendAudit('🛑 [CASCADE SUPPRESSOR] Detected order-service is upstream caller of payment-service!', 'var(--status-purple)');
+                        appendAudit('🛡️ [VICTIM SHIELDED] Suppressed destructive pod restarts on order-service. No friendly fire!', 'var(--status-green)');
+
+                        setTimeout(() => {
+                            document.getElementById('order-status-pill').style.borderColor = 'var(--border-subtle)';
+                            document.getElementById('order-status-dot').style.background = 'var(--status-green)';
+                            document.getElementById('order-status-text').innerText = 'Healthy';
+                            document.getElementById('order-action-text').innerText = 'Circuit Closed';
+                            document.getElementById('order-bar').style.background = 'var(--status-green)';
+
+                            document.getElementById('payment-status-dot').style.background = 'var(--status-green)';
+                            document.getElementById('payment-status-text').innerText = 'Healthy';
+                            appendAudit('✨ [RECOVERED] Downstream restored. Microservice chain fully stabilized.', 'var(--status-green)');
+                        }, 1200);
+                    }, 350);
                 }, 300);
 
             } else if (type === 'oom') {
-                addFeed('📈 [ALERT] PodMemoryLimitExceeded on inventory-service (Heap: 98.7%)', '#2563eb');
-                
+                appendAudit('📈 [ALERT] PodMemoryLimitExceeded on inventory-service (Heap: 98.7%)', 'var(--status-cyan)');
+                document.getElementById('inv-status-dot').style.background = 'var(--status-cyan)';
+                document.getElementById('inv-status-text').innerText = 'Heap 98.7%';
+                document.getElementById('inv-bar').style.width = '98%';
+                document.getElementById('inv-bar').style.background = 'var(--status-cyan)';
+
                 setTimeout(() => {
-                    addFeed('🧠 [JEV PREFILL] Decision: RESTART_POD (84.2%)', '#0284c7');
-                    addFeed('✓ [K8S EXEC] Sent graceful SIGTERM; fresh replacement replica spawned.', '#16a34a');
-                    showToast('OOM resolved in 18.2ms via targeted pod eviction.');
+                    appendAudit('🧠 [JEV PREFILL ~18.2ms] Decision: RESTART_POD (84.2%). Rationale: Evict pod to clean heap.', 'var(--status-cyan)');
+                    appendAudit('✓ [K8S EXEC] Sent SIGTERM to inventory-svc pod; fresh replica initialized.', 'var(--status-green)');
+
+                    setTimeout(() => {
+                        document.getElementById('inv-status-dot').style.background = 'var(--status-green)';
+                        document.getElementById('inv-status-text').innerText = 'Healthy';
+                        document.getElementById('inv-bar').style.width = '28%';
+                        document.getElementById('inv-bar').style.background = 'var(--status-green)';
+                        document.getElementById('inv-heap').innerText = '28.4%';
+                        appendAudit('✨ [RESOLVED] Heap space cleaned. Service back to baseline.', 'var(--status-green)');
+                    }, 600);
                 }, 300);
             }
         }
 
         function runRestore() {
-            addFeed('🔄 [RESTORER] Scanning isolated pods and oversized deployments...', '#0284c7');
+            appendAudit('🔄 [REVERSE RESTORER] Scanning for quarantined pods and oversized deployments...', 'var(--status-cyan)');
             setTimeout(() => {
-                addFeed('✓ [RESTORER] Cleared quarantine labels; traffic reconnected 100%.', '#16a34a');
-                addFeed('✓ [SCALE-IN] Scaled deployment back to baseline (2 replicas).', '#16a34a');
-                showToast('Cluster restored to baseline state.');
+                appendAudit('✓ [K8S RESTORE] Cleared quarantine labels; traffic reconnected 100%.', 'var(--status-green)');
+                appendAudit('✓ [SCALE-IN] Scaled deployment back to baseline (2 replicas). Cloud waste eliminated.', 'var(--status-green)');
             }, 300);
         }
 
-        // Modal Whitepaper Drawer
         function openModal() {
             document.getElementById('modal').classList.add('active');
         }
