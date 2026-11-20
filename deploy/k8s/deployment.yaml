@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aiops-sentry
+  namespace: monitoring
+  labels:
+    app: aiops-sentry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aiops-sentry
+  template:
+    metadata:
+      labels:
+        app: aiops-sentry
+    spec:
+      serviceAccountName: aiops-sentry-sa
+      containers:
+        - name: sentry
+          image: aiops-sentry:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: SENTRY_PORT
+              value: "8080"
+            - name: SENTRY_USE_MOCK_ENGINE
+              value: "true"
+            - name: SENTRY_COOLDOWN_SECONDS
+              value: "180"
+            - name: SENTRY_MIN_CONFIDENCE
+              value: "0.75"
+          resources:
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /v1/sentry/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /v1/sentry/health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aiops-sentry
+  namespace: monitoring
+  labels:
+    app: aiops-sentry
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: aiops-sentry
