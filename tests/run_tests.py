@@ -49,6 +49,14 @@ from tests.test_v2_features import (
     test_alertmanager_webhook_storm_deduplication_e2e,
 )
 
+# Sprint 7 & 8 (V3 features: Restorer, PostMortem, Shadow Mode) tests
+from tests.test_v3_features import (
+    test_service_restorer_traffic_and_scale,
+    test_restore_endpoint_flow,
+    test_postmortem_engine_markdown_generation,
+    test_shadow_mode_dry_run_and_scoreboard,
+)
+
 
 async def main():
     sync_tests = [
@@ -70,6 +78,9 @@ async def main():
         ("Phase 5 - Storm Guard: 3s Sliding Window Fingerprint Deduplication", test_storm_guard_sliding_window_deduplication),
         ("Phase 6 - Closed Loop: Escalation Ladder Action Mapping", test_escalation_ladder_mapping),
         ("Phase 7 - Telemetry: Prometheus Exposition Format", test_telemetry_prometheus_exporter),
+        # Phase 8: V3 Features (PostMortem & Shadow Mode)
+        ("Phase 8 - Post-Mortem: Markdown & Timeline Generation", test_postmortem_engine_markdown_generation),
+        ("Phase 8 - Shadow Mode: Scoreboard Evaluation", test_shadow_mode_dry_run_and_scoreboard),
     ]
 
     async_tests = [
@@ -87,14 +98,17 @@ async def main():
         ("Phase 6 - Closed Loop: Verification Recovery Success", test_closed_loop_verification_recovery_success),
         ("Phase 6 - Closed Loop: Unresolved Incident Escalates to Next Tier", test_closed_loop_verification_unresolved_escalation),
         ("Phase 5 - E2E Webhook: Alert Storm Batch Deduplication", test_alertmanager_webhook_storm_deduplication_e2e),
+        # Phase 8: V3 Restorer
+        ("Phase 8 - Restorer: Traffic & Scale-in Reversal", test_service_restorer_traffic_and_scale),
+        ("Phase 8 - Restorer API: POST /v1/sentry/restore Flow", test_restore_endpoint_flow),
     ]
 
     passed = 0
     failed = 0
 
-    print("=" * 75)
-    print("AIOps-Sentry Full Production Test Suite (Phase 1 -> Phase 8 / V2)")
-    print("=" * 75)
+    print("=" * 80)
+    print("AIOps-Sentry Full Production Test Suite (Phase 1 -> Phase 8 / V3)")
+    print("=" * 80)
 
     for name, func in sync_tests:
         try:
@@ -114,9 +128,9 @@ async def main():
             print(f"[FAIL] {name}: {e}")
             failed += 1
 
-    print("=" * 75)
+    print("=" * 80)
     print(f"Summary: {passed} passed, {failed} failed.")
-    print("=" * 75)
+    print("=" * 80)
 
     if failed > 0:
         sys.exit(1)

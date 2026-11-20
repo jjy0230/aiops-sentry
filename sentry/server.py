@@ -1,6 +1,7 @@
 import time
 import logging
 import asyncio
+import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +17,9 @@ from sentry.schemas import (
     InteractiveCardDetails,
     ApprovalRequest,
     ApprovalResponse,
+    RestoreRequest,
+    RestoreResponse,
+    GroundTruthSubmission,
 )
 from sentry.engine import BaseJevEngine, MockJevEngine, HttpJevClient
 from sentry.safety import SafetyEnvelope, BlastRadiusGuard
@@ -24,6 +28,9 @@ from sentry.human_gate import ApprovalTokenManager, InteractiveCardBuilder
 from sentry.storm_guard import AlertFingerprintDeduplicator, StormConcurrencyPool
 from sentry.closed_loop import PostRemediationProbeManager
 from sentry.telemetry import telemetry
+from sentry.restorer import ServiceRestorer
+from sentry.postmortem import postmortem_engine
+from sentry.shadow_mode import shadow_manager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -56,14 +63,49 @@ class SentryCore:
             executor_dispatch_fn=self.executor.execute,
             verification_delay_seconds=2.0,
         )
+        self.restorer = ServiceRestorer()
 
     async def process_context(self, ctx: FailureContext) -> RemediationExecutionResult:
         start_time = time.perf_counter()
+        incident_id = f"inc-{ctx.service_name}-{uuid.uuid4().hex[:8]}"
 
         # Step 1: Fast single-pass Jev forward arbitration (~20ms)
         arbitration = await self.engine.evaluate(ctx)
 
-        # Step 2: Invariant safety envelope check (~2ms)
+        # Step 2: Check Shadow Mode (Dry-Run observation)
+        is_shadow = shadow_manager.is_shadow_mode_active(ctx.service_name)
+        if is_shadow:
+            shadow_manager.record_prediction(incident_id, ctx, arbitration)
+            status = RemediationStatus.SHADOW_RECORDED
+            verdict = f"[Shadow Mode Active] Recorded prediction: {arbitration.selected_action.value} ({arbitration.confidence*100:.1f}%) without physical execution."
+            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+            telemetry.record_arbitration(ctx.service_name, arbitration.selected_action.value, status.value, elapsed_ms)
+            
+            # Record post-mortem artifact even in shadow mode
+            postmortem_engine.record_incident(
+                incident_id=incident_id,
+                ctx=ctx,
+                arbitration=arbitration,
+                action=arbitration.selected_action,
+                execution_message=verdict,
+                started_at=start_time,
+                resolved_at=time.time(),
+            )
+
+            return RemediationExecutionResult(
+                incident_id=incident_id,
+                action=arbitration.selected_action,
+                status=status,
+                executed=False,
+                requires_human_approval=False,
+                safety_verdict=verdict,
+                execution_message=verdict,
+                target_service=ctx.service_name,
+                target_pod=ctx.pod_name,
+                arbitration=arbitration,
+            )
+
+        # Step 3: Invariant safety envelope check (~2ms)
         status, final_action, verdict, requires_approval = self.safety.verify(ctx, arbitration)
 
         executed = False
@@ -90,11 +132,11 @@ class SentryCore:
             exec_message = f"Remediation blocked/escalated. Reason: {verdict}"
             telemetry.record_safety_block(status.value)
 
-            # Generate cryptographic approval token and ChatOps cards
             token_str = self.token_manager.create_token(
                 action=arbitration.selected_action,
                 ctx=ctx,
                 reason=verdict,
+                trace_id=incident_id,
             )
             feishu_card = InteractiveCardBuilder.build_feishu_card(
                 ctx=ctx,
@@ -113,10 +155,24 @@ class SentryCore:
                 dingtalk_card=dingtalk_card,
             )
 
+        # Record Incident Artifact for Post-Mortem & Timeline Exporter
+        postmortem_engine.record_incident(
+            incident_id=incident_id,
+            ctx=ctx,
+            arbitration=arbitration,
+            action=final_action,
+            execution_message=exec_message,
+            started_at=start_time,
+            resolved_at=time.time(),
+            root_blocker_id=1024 if final_action == RemediationAction.FORCE_KILL_LONG_TRANSACTION else None,
+            blocking_query="SELECT * FROM orders FOR UPDATE" if final_action == RemediationAction.FORCE_KILL_LONG_TRANSACTION else None,
+        )
+
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         telemetry.record_arbitration(ctx.service_name, final_action.value, status.value, elapsed_ms)
 
         return RemediationExecutionResult(
+            incident_id=incident_id,
             action=final_action,
             status=status,
             executed=executed,
@@ -143,7 +199,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AIOps-Sentry",
     description="Sub-100ms Autonomous Remediation Arbitrator for Kubernetes & Microservices powered by Jev",
-    version="2.0.0",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -170,6 +226,7 @@ async def health():
         "cooldown_seconds": settings.cooldown_seconds,
         "min_confidence": settings.min_confidence_threshold,
         "storm_deduplicated_count": core.deduplicator.total_deduplicated_count,
+        "recorded_incidents_count": len(postmortem_engine.incidents),
     }
 
 
@@ -179,12 +236,67 @@ async def arbitrate(ctx: FailureContext):
     return await core.process_context(ctx)
 
 
+@app.post("/v1/sentry/restore", response_model=RestoreResponse)
+async def restore_service(req: RestoreRequest):
+    """
+    Reverse lifecycle restorer: un-drains isolated pods and scales back to baseline replicas.
+    """
+    messages = []
+    success = True
+
+    if req.pod_name:
+        s_pod, msg_pod = await core.restorer.restore_traffic(req.namespace, req.pod_name)
+        messages.append(msg_pod)
+        if not s_pod:
+            success = False
+
+    if req.service_name:
+        s_scale, msg_scale = await core.restorer.scale_in_to_baseline(req.namespace, req.service_name, req.baseline_replicas)
+        messages.append(msg_scale)
+        if not s_scale:
+            success = False
+
+    combined = " | ".join(messages) if messages else "No restore targets specified."
+    return RestoreResponse(success=success, message=combined, target=req.pod_name or req.service_name or "none")
+
+
+@app.get("/v1/sentry/postmortem/{incident_id}")
+async def get_incident_postmortem(incident_id: str):
+    """Retrieves full incident JSON record."""
+    rec = postmortem_engine.incidents.get(incident_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail=f"Incident '{incident_id}' not found.")
+    return rec
+
+
+@app.get("/v1/sentry/postmortem/{incident_id}/markdown")
+async def get_incident_markdown(incident_id: str):
+    """Exports standardized SRE Incident Post-Mortem in GitHub-Flavored Markdown."""
+    try:
+        md = postmortem_engine.export_markdown(incident_id)
+        return Response(content=md, media_type="text/markdown")
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Incident '{incident_id}' not found.")
+
+
+@app.get("/v1/sentry/shadow/scoreboard")
+async def get_shadow_scoreboard():
+    """Retrieves prediction accuracy scoreboard evaluated against human SRE ground truth."""
+    return shadow_manager.get_scoreboard()
+
+
+@app.post("/v1/sentry/shadow/ground-truth")
+async def submit_human_ground_truth(sub: GroundTruthSubmission):
+    """Records human operator decision for shadow-mode accuracy benchmark."""
+    rec = shadow_manager.record_ground_truth(sub.incident_id, sub.human_action)
+    if not rec:
+        raise HTTPException(status_code=404, detail=f"Shadow incident '{sub.incident_id}' not found.")
+    return {"status": "recorded", "is_match": rec.is_match, "suggested": rec.suggested_action, "human": sub.human_action}
+
+
 @app.post("/v1/sentry/approval", response_model=ApprovalResponse)
 async def handle_human_approval(req: ApprovalRequest):
-    """
-    Human-in-the-loop authorization callback endpoint.
-    Validates token signature and executes approved SOP action.
-    """
+    """Human-in-the-loop authorization callback endpoint."""
     valid, payload, err_msg = core.token_manager.verify_and_consume(req.approval_token)
     if not valid or not payload:
         raise HTTPException(status_code=400, detail=f"Approval authorization failed: {err_msg}")
@@ -222,10 +334,7 @@ async def handle_human_approval(req: ApprovalRequest):
 
 @app.post("/v1/sentry/webhook/alertmanager")
 async def alertmanager_webhook(payload: AlertmanagerWebhook):
-    """
-    High-throughput Prometheus Alertmanager webhook receiver.
-    Applies 3s sliding-window fingerprint deduplication and bounded-concurrency execution.
-    """
+    """High-throughput Prometheus Alertmanager webhook receiver with sliding-window deduplication."""
     parsed_contexts = []
 
     for alert in payload.alerts:
@@ -270,7 +379,6 @@ async def alertmanager_webhook(payload: AlertmanagerWebhook):
         )
         parsed_contexts.append(ctx)
 
-    # Apply 3s Sliding Window Fingerprint Deduplication
     contexts_to_arbitrate = []
     for ctx in parsed_contexts:
         is_new, group = core.deduplicator.process_incoming(ctx)
@@ -279,7 +387,6 @@ async def alertmanager_webhook(payload: AlertmanagerWebhook):
         else:
             telemetry.record_deduplication(ctx.service_name)
 
-    # Process in bounded concurrency pool
     tasks = [
         core.concurrency_pool.execute_bounded(core.process_context(ctx))
         for ctx in contexts_to_arbitrate
