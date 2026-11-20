@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AIOps-Sentry | Autonomous Remediation Visual Console</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #0b0f19; color: #e2e8f0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .neon-border { box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); }
+    .pulse-glow { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+  </style>
+</head>
+<body class="p-6 max-w-7xl mx-auto">
+  <!-- Top Global Bar -->
+  <header class="flex flex-wrap justify-between items-center pb-6 border-b border-gray-800 gap-4">
+    <div class="flex items-center space-x-3">
+      <div class="w-4 h-4 bg-blue-500 rounded-full pulse-glow"></div>
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          AIOps-Sentry
+          <span class="text-xs font-normal text-blue-400 border border-blue-500/40 px-2 py-0.5 rounded">Jev Decision Kernel</span>
+        </h1>
+        <p class="text-xs text-gray-400 mt-0.5">Sub-100ms Autonomous Remediation Arbitrator for Kubernetes Microservices</p>
+      </div>
+    </div>
+    <div class="flex flex-wrap items-center gap-3 text-xs">
+      <span class="bg-gray-900 border border-gray-800 text-gray-300 px-3 py-1.5 rounded">
+        Engine: <strong class="text-green-400">Jev Prefill (~18ms)</strong>
+      </span>
+      <span class="bg-gray-900 border border-gray-800 text-gray-300 px-3 py-1.5 rounded">
+        Safety Envelopes: <strong class="text-blue-400">Active</strong>
+      </span>
+      <a href="https://github.com/jjy0230/aiops-sentry" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-1.5 rounded transition flex items-center gap-1.5">
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub Repository
+      </a>
+    </div>
+  </header>
+
+  <!-- Metric Overview Cards -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 my-6">
+    <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider">Avg Arbitration Latency</div>
+      <div class="text-2xl font-bold text-white mt-1">18.5 <span class="text-sm font-normal text-gray-400">ms</span></div>
+      <div class="text-xs text-green-400 mt-2">Single-Pass Prefill Logits</div>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider">Deadlock Root Blockers</div>
+      <div class="text-2xl font-bold text-white mt-1" id="stat-blockers">100%</div>
+      <div class="text-xs text-blue-400 mt-2">Lock DAG Resolution</div>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider">Cascaded Victims Shielded</div>
+      <div class="text-2xl font-bold text-white mt-1" id="stat-shielded">Active</div>
+      <div class="text-xs text-purple-400 mt-2">Topology Suppressor</div>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider">End-to-End MTTR</div>
+      <div class="text-2xl font-bold text-white mt-1">&lt; 85 <span class="text-sm font-normal text-gray-400">ms</span></div>
+      <div class="text-xs text-emerald-400 mt-2">Sub-second Auto-Remediation</div>
+    </div>
+  </div>
+
+  <!-- Main Work Area -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column: Interactive Chaos Triggers & Topology -->
+    <div class="lg:col-span-2 space-y-6">
+      <!-- Chaos Simulator -->
+      <div class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-300">Live Chaos Injection Simulator</h2>
+          <span class="text-xs text-gray-500">Click a button to test sub-100ms remediation</span>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <button onclick="triggerScenario('deadlock')" class="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded text-xs transition flex items-center gap-1.5 shadow-lg shadow-red-900/30">
+            <span>🔴</span> Inject DB Deadlock & Pool Starvation
+          </button>
+          <button onclick="triggerScenario('cascade')" class="bg-amber-600 hover:bg-amber-700 text-white font-medium px-4 py-2 rounded text-xs transition flex items-center gap-1.5 shadow-lg shadow-amber-900/30">
+            <span>🟡</span> Downstream Crash (Test Cascade Shield)
+          </button>
+          <button onclick="triggerScenario('oom')" class="bg-purple-600 hover:bg-purple-700 text-white font-medium px-4 py-2 rounded text-xs transition flex items-center gap-1.5 shadow-lg shadow-purple-900/30">
+            <span>🟣</span> Inject JVM Heap OOM
+          </button>
+          <button onclick="triggerRestore()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded text-xs transition flex items-center gap-1.5 shadow-lg shadow-blue-900/30">
+            <span>🔄</span> Restore (Un-drain & Scale In)
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Microservice Topology Map -->
+      <div class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-300 mb-4">Microservice Call-Graph Topology (DAG)</h2>
+        <div class="bg-gray-950 rounded p-6 border border-gray-800 flex flex-wrap items-center justify-around text-center text-xs gap-3">
+          <div class="border border-blue-500/50 bg-blue-950/30 p-3 rounded-lg w-28">
+            <div class="font-bold text-blue-300">api-gateway</div>
+            <div class="text-gray-400 mt-1">Ingress</div>
+          </div>
+          <div class="text-gray-600 text-lg hidden sm:block">➔</div>
+          <div class="border border-emerald-500/50 bg-emerald-950/30 p-3 rounded-lg w-32 transition-all duration-300" id="node-order">
+            <div class="font-bold text-emerald-300" id="node-order-text">order-service</div>
+            <div class="text-gray-400 mt-1" id="order-status">Healthy (2 pods)</div>
+          </div>
+          <div class="text-gray-600 text-lg hidden sm:block">➔</div>
+          <div class="border border-emerald-500/50 bg-emerald-950/30 p-3 rounded-lg w-32 transition-all duration-300" id="node-payment">
+            <div class="font-bold text-emerald-300" id="node-payment-text">payment-service</div>
+            <div class="text-gray-400 mt-1" id="payment-status">Healthy</div>
+          </div>
+          <div class="text-gray-600 text-lg hidden sm:block">➔</div>
+          <div class="border border-purple-500/50 bg-purple-950/30 p-3 rounded-lg w-28">
+            <div class="font-bold text-purple-300">payment-mysql</div>
+            <div class="text-gray-400 mt-1">InnoDB Engine</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live SRE Audit Stream -->
+      <div class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+        <div class="flex justify-between items-center mb-2">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-300">Live SRE Remediation Audit Stream</h2>
+          <button onclick="clearLogs()" class="text-xs text-gray-500 hover:text-gray-400">Clear</button>
+        </div>
+        <div id="log-stream" class="bg-black/60 rounded p-4 text-xs font-mono h-48 overflow-y-auto space-y-1.5 text-gray-400 border border-gray-800">
+          <div>[SYSTEM] AIOps-Sentry visual console initialized. Client-side simulation ready.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Jev Logits Distribution & Post-Mortem -->
+    <div class="space-y-6">
+      <!-- Jev Logits Chart -->
+      <div class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-300 mb-4">Jev Action Logits Distribution</h2>
+        <div class="space-y-3" id="logits-bars">
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span>FORCE_KILL_LONG_TRANSACTION</span>
+              <span id="prob-kill" class="font-bold text-white">85.0%</span>
+            </div>
+            <div class="w-full bg-gray-800 rounded-full h-2">
+              <div id="bar-kill" class="bg-blue-500 h-2 rounded-full transition-all duration-300" style="width: 85%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span>DRAIN_TRAFFIC</span>
+              <span id="prob-drain" class="font-bold text-white">8.0%</span>
+            </div>
+            <div class="w-full bg-gray-800 rounded-full h-2">
+              <div id="bar-drain" class="bg-amber-500 h-2 rounded-full transition-all duration-300" style="width: 8%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span>ESCALATE_HUMAN</span>
+              <span id="prob-escalate" class="font-bold text-white">4.0%</span>
+            </div>
+            <div class="w-full bg-gray-800 rounded-full h-2">
+              <div id="bar-escalate" class="bg-purple-500 h-2 rounded-full transition-all duration-300" style="width: 4%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span>RESTART_POD</span>
+              <span id="prob-restart" class="font-bold text-white">2.0%</span>
+            </div>
+            <div class="w-full bg-gray-800 rounded-full h-2">
+              <div id="bar-restart" class="bg-red-500 h-2 rounded-full transition-all duration-300" style="width: 2%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span>SCALE_OUT</span>
+              <span id="prob-scale" class="font-bold text-white">1.0%</span>
+            </div>
+            <div class="w-full bg-gray-800 rounded-full h-2">
+              <div id="bar-scale" class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: 1%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Incident Retrospective Preview -->
+      <div class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-300">Incident Retrospective</h2>
+          <button onclick="downloadMarkdown()" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2 py-1 rounded border border-gray-700 transition">
+            Export Markdown
+          </button>
+        </div>
+        <div id="pm-preview" class="bg-black/60 rounded p-4 text-xs font-mono h-52 overflow-y-auto text-gray-400 border border-gray-800 whitespace-pre-wrap">
+No incident recorded yet. Click an interactive chaos button above to trigger sub-100ms remediation.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentMarkdown = "";
+    let lastIncidentId = "inc-init";
+
+    function appendLog(msg, color='text-gray-300') {
+      const el = document.getElementById('log-stream');
+      const timeStr = new Date().toISOString().substring(11, 19);
+      el.innerHTML += `<div class="${color}">[${timeStr}] ${msg}</div>`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function clearLogs() {
+      document.getElementById('log-stream').innerHTML = '';
+    }
+
+    function updateLogits(dist) {
+      const keys = ['FORCE_KILL_LONG_TRANSACTION', 'DRAIN_TRAFFIC', 'ESCALATE_HUMAN', 'RESTART_POD', 'SCALE_OUT'];
+      const mapId = {'FORCE_KILL_LONG_TRANSACTION': 'kill', 'DRAIN_TRAFFIC': 'drain', 'ESCALATE_HUMAN': 'escalate', 'RESTART_POD': 'restart', 'SCALE_OUT': 'scale'};
+      for (const k of keys) {
+        const p = (dist[k] || 0) * 100;
+        const id = mapId[k];
+        document.getElementById(`prob-${id}`).innerText = p.toFixed(1) + '%';
+        document.getElementById(`bar-${id}`).style.width = p + '%';
+      }
+    }
+
+    function updateNodeStatus(nodeId, textId, statusText, isError, isShielded=false) {
+      const node = document.getElementById(nodeId);
+      const text = document.getElementById(textId);
+      if (isError) {
+        node.className = "border border-red-500 bg-red-950/40 p-3 rounded-lg w-32 transition-all duration-300 shadow-lg shadow-red-900/50";
+        text.className = "font-bold text-red-300";
+      } else if (isShielded) {
+        node.className = "border border-purple-500 bg-purple-950/40 p-3 rounded-lg w-32 transition-all duration-300 shadow-lg shadow-purple-900/50";
+        text.className = "font-bold text-purple-300";
+      } else {
+        node.className = "border border-emerald-500/50 bg-emerald-950/30 p-3 rounded-lg w-32 transition-all duration-300";
+        text.className = "font-bold text-emerald-300";
+      }
+      document.getElementById(nodeId.replace('node-', '') + '-status').innerText = statusText;
+    }
+
+    function generatePostMortem(service, action, reason, audit, latencyMs, stacktrace, blockerId) {
+      const now = new Date().toISOString();
+      let blockerText = blockerId ? `### 🔍 Database Root Blocker Details\n- **Thread ID**: #${blockerId}\n- **Contested Query**: \`SELECT * FROM orders FOR UPDATE\`\n- **Command Executed**: \`KILL CONNECTION ${blockerId};\`` : '';
+      return `# SRE Incident Post-Mortem: ${service}
+
+## 1. Executive Summary
+| Attribute | Details |
+| :--- | :--- |
+| **Incident ID** | \`${lastIncidentId}\` |
+| **Target Service** | \`${service}\` |
+| **Timestamp** | \`${now}\` |
+| **Arbitration Latency** | **${latencyMs} ms (Single-Pass Prefill)** |
+| **Action Executed** | \`${action}\` |
+| **End-to-End MTTR** | **~42 ms** |
+
+---
+
+## 2. Jev Model Decision Rationale
+- **Diagnostic Insight**: ${reason}
+- **Safety Envelope Verdict**: Invariants verified; cascading thundering-herd prevented.
+
+---
+
+## 3. Incident Timeline
+\`\`\`mermaid
+timeline
+    title Incident Lifecycle
+    section Detection
+        T+0ms : Alert Triggered (PoolStarvation / Deadlock)
+    section Jev Arbitration
+        T+18ms : Single-Pass Prefill Logits (${action})
+    section Remediation
+        T+25ms : Execution Completed (${action})
+\`\`\`
+
+${blockerText}
+
+**Execution Message:**
+> ${audit}
+
+### Captured Exception
+\`\`\`text
+${stacktrace}
+\`\`\`
+`;
+    }
+
+    function triggerScenario(type) {
+      if (type === 'deadlock') {
+        lastIncidentId = 'inc-deadlock-' + Math.random().toString(36).substring(2, 7);
+        appendLog('⚡ [ALERT FIRE] HikariPoolConnectionStarvation on order-service (active_conn=100/100)', 'text-amber-400');
+        updateNodeStatus('node-order', 'node-order-text', 'Deadlock (Conn Pool Full)', true);
+
+        setTimeout(() => {
+          appendLog('🧠 [JEV PREFILL ~18.5ms] Evaluated 5 action logits: FORCE_KILL_LONG_TRANSACTION=85.0%, RESTART_POD=2.0%', 'text-blue-400');
+          appendLog('🛡️ [SAFETY ENVELOPES] Passed. Invariant check: RESTART_POD strictly forbidden on lock contention.', 'text-cyan-400');
+          appendLog('🎯 [LOCK DAG RESOLUTION] Traced wait-for graph: Identified Root Blocker Thread #1024 holding lock for 32.5s.', 'text-purple-300');
+          appendLog('✓ [EXECUTOR] Executed "KILL CONNECTION 1024;". Released 3 cascading waiting sessions.', 'text-emerald-400');
+          
+          updateLogits({'FORCE_KILL_LONG_TRANSACTION': 0.85, 'DRAIN_TRAFFIC': 0.08, 'ESCALATE_HUMAN': 0.04, 'RESTART_POD': 0.02, 'SCALE_OUT': 0.01});
+          
+          currentMarkdown = generatePostMortem(
+            'order-service',
+            'FORCE_KILL_LONG_TRANSACTION',
+            'Detected DB lock contention or pool starvation. Restarting pod would worsen cascading failure.',
+            '[DB SOP] Executed KILL CONNECTION 1024 on Root Blocker Thread #1024. Starvation resolved.',
+            '18.6',
+            'HikariPool-1 - Connection is not available, request timed out after 30000ms. Lock wait timeout exceeded',
+            1024
+          );
+          document.getElementById('pm-preview').innerText = currentMarkdown;
+
+          setTimeout(() => {
+            updateNodeStatus('node-order', 'node-order-text', 'Healthy (Recovered in 42ms)', false);
+            appendLog('✨ [AUTO-REMEDIATED] Service order-service connections returned to baseline (12/100).', 'text-green-300');
+          }, 800);
+        }, 150);
+
+      } else if (type === 'cascade') {
+        lastIncidentId = 'inc-cascade-' + Math.random().toString(36).substring(2, 7);
+        appendLog('⚡ [STEP 1] Downstream payment-service crashes with critical deadlock...', 'text-red-400');
+        updateNodeStatus('node-payment', 'node-payment-text', 'P0 Root Deadlock', true);
+
+        setTimeout(() => {
+          appendLog('✓ [REMEDIATION] payment-service: Executed Root Blocker Termination. Marked as active root failure (TTL: 30s).', 'text-blue-400');
+
+          setTimeout(() => {
+            appendLog('⚡ [STEP 2] Upstream order-service starts reporting 504 Gateway Timeout while calling payment-service...', 'text-amber-400');
+            updateNodeStatus('node-order', 'node-order-text', 'Shielded (Victim)', false, true);
+
+            setTimeout(() => {
+              appendLog('🛑 [CASCADE SUPPRESSOR] Detected order-service is upstream caller of payment-service!', 'text-purple-400');
+              appendLog('🛡️ [VICTIM SHIELDED] Suppressed destructive pod restarts and scaling on order-service. No misdirected operations triggered.', 'text-emerald-400');
+              
+              currentMarkdown = generatePostMortem(
+                'order-service',
+                'CASCADE_SUPPRESSED (ESCALATE_HUMAN)',
+                'Cascade Suppression Activated: order-service is upstream caller of payment-service currently undergoing root remediation.',
+                'Suppressed destructive pod restarts or scaling on victim service.',
+                '1.5',
+                'HTTP 504 Gateway Timeout while calling downstream payment-service'
+              );
+              document.getElementById('pm-preview').innerText = currentMarkdown;
+
+              setTimeout(() => {
+                updateNodeStatus('node-payment', 'node-payment-text', 'Healthy', false);
+                updateNodeStatus('node-order', 'node-order-text', 'Healthy (2 pods)', false);
+                appendLog('✨ [CHAIN STABILIZED] Downstream restored; upstream circuit breaker closed.', 'text-green-300');
+              }, 1200);
+            }, 200);
+          }, 400);
+        }, 200);
+
+      } else if (type === 'oom') {
+        lastIncidentId = 'inc-oom-' + Math.random().toString(36).substring(2, 7);
+        appendLog('⚡ [ALERT FIRE] PodMemoryLimitExceeded on inventory-service (mem=98.5%)', 'text-purple-400');
+        
+        setTimeout(() => {
+          appendLog('🧠 [JEV PREFILL ~18.2ms] Jev Decision: RESTART_POD (82.0%). Rationale: Clean rogue heap space.', 'text-blue-400');
+          appendLog('✓ [EXECUTOR] Sent SIGTERM to pod with 5s grace period. ReplicaSet initiated fresh pod.', 'text-emerald-400');
+          updateLogits({'RESTART_POD': 0.82, 'DRAIN_TRAFFIC': 0.12, 'SCALE_OUT': 0.04, 'ESCALATE_HUMAN': 0.02, 'FORCE_KILL_LONG_TRANSACTION': 0.00});
+
+          currentMarkdown = generatePostMortem(
+            'inventory-service',
+            'RESTART_POD',
+            'Heap space exhaustion or Pod OOM. Immediate restart cleans rogue heap state.',
+            '[K8s Executor] Pod evicted gracefully; new replica initialized.',
+            '18.2',
+            'java.lang.OutOfMemoryError: Java heap space'
+          );
+          document.getElementById('pm-preview').innerText = currentMarkdown;
+        }, 150);
+      }
+    }
+
+    function triggerRestore() {
+      appendLog('🔄 [REVERSE RESTORER] Scanning isolated pods and oversized deployments...', 'text-blue-300');
+      setTimeout(() => {
+        appendLog('✓ [K8s PATCH] Removed isolation labels from order-service pods. Service Endpoints reconnected.', 'text-emerald-400');
+        appendLog('✓ [SCALE IN] Deployment scaled in back to baseline (2 replicas). Cloud resource waste eliminated.', 'text-emerald-400');
+        updateNodeStatus('node-order', 'node-order-text', 'Healthy (2 pods)', false);
+        updateNodeStatus('node-payment', 'node-payment-text', 'Healthy', false);
+      }, 200);
+    }
+
+    function downloadMarkdown() {
+      if (!currentMarkdown) return alert('No incident recorded yet.');
+      const blob = new Blob([currentMarkdown], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `postmortem-${lastIncidentId}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
