@@ -13,6 +13,8 @@ Instead of relying on slow generative LLMs that output verbose text (taking 3-10
   - `RESTART_POD`: Graceful Pod eviction and reconstruction for memory exhaustion.
   - `SCALE_OUT`: Controlled horizontal scaling under strict replica quota.
   - `ESCALATE_HUMAN`: Automated escalation to on-call engineers.
+- **Microservice Dependency Topology & Cascade Suppressor**:
+  - Maintains directed call-graph DAGs. Automatically identifies and shields innocent upstream caller services (victims) from destructive restarts or scaling when downstreams experience root outages.
 - **Reverse Lifecycle & Service Restorer**:
   - Un-drains isolated Pods and scales deployments back to baseline replicas via `POST /v1/sentry/restore`.
 - **Incident Post-Mortem & Timeline Exporter**:

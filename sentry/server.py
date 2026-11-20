@@ -20,6 +20,7 @@ from sentry.schemas import (
     RestoreRequest,
     RestoreResponse,
     GroundTruthSubmission,
+    ServiceDependencyEdgeInput,
 )
 from sentry.engine import BaseJevEngine, MockJevEngine, HttpJevClient
 from sentry.safety import SafetyEnvelope, BlastRadiusGuard
@@ -31,6 +32,7 @@ from sentry.telemetry import telemetry
 from sentry.restorer import ServiceRestorer
 from sentry.postmortem import postmortem_engine
 from sentry.shadow_mode import shadow_manager
+from sentry.topology import cascade_suppressor
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,15 +66,47 @@ class SentryCore:
             verification_delay_seconds=2.0,
         )
         self.restorer = ServiceRestorer()
+        self.topology_suppressor = cascade_suppressor
 
     async def process_context(self, ctx: FailureContext) -> RemediationExecutionResult:
         start_time = time.perf_counter()
         incident_id = f"inc-{ctx.service_name}-{uuid.uuid4().hex[:8]}"
 
-        # Step 1: Fast single-pass Jev forward arbitration (~20ms)
+        # Step 1: Evaluate Microservice Dependency Topology Cascade
+        cascade_verdict = self.topology_suppressor.evaluate_cascade(ctx)
+        if cascade_verdict.should_suppress:
+            status = RemediationStatus.CASCADE_SUPPRESSED
+            verdict_msg = cascade_verdict.verdict_message
+            arbitration = ArbitrationResult(
+                selected_action=RemediationAction.ESCALATE_HUMAN,
+                confidence=1.0,
+                margin=1.0,
+                distribution={RemediationAction.ESCALATE_HUMAN.value: 1.0},
+                latency_ms=1.5,
+                engine_name="TopologyCascadeSuppressor",
+                reason=verdict_msg,
+            )
+            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+            telemetry.record_arbitration(ctx.service_name, RemediationAction.ESCALATE_HUMAN.value, status.value, elapsed_ms)
+            telemetry.record_safety_block("CASCADE_SUPPRESSED")
+
+            return RemediationExecutionResult(
+                incident_id=incident_id,
+                action=RemediationAction.ESCALATE_HUMAN,
+                status=status,
+                executed=False,
+                requires_human_approval=False,
+                safety_verdict=verdict_msg,
+                execution_message=verdict_msg,
+                target_service=ctx.service_name,
+                target_pod=ctx.pod_name,
+                arbitration=arbitration,
+            )
+
+        # Step 2: Fast single-pass Jev forward arbitration (~20ms)
         arbitration = await self.engine.evaluate(ctx)
 
-        # Step 2: Check Shadow Mode (Dry-Run observation)
+        # Step 3: Check Shadow Mode (Dry-Run observation)
         is_shadow = shadow_manager.is_shadow_mode_active(ctx.service_name)
         if is_shadow:
             shadow_manager.record_prediction(incident_id, ctx, arbitration)
@@ -81,7 +115,6 @@ class SentryCore:
             elapsed_ms = (time.perf_counter() - start_time) * 1000.0
             telemetry.record_arbitration(ctx.service_name, arbitration.selected_action.value, status.value, elapsed_ms)
             
-            # Record post-mortem artifact even in shadow mode
             postmortem_engine.record_incident(
                 incident_id=incident_id,
                 ctx=ctx,
@@ -105,7 +138,7 @@ class SentryCore:
                 arbitration=arbitration,
             )
 
-        # Step 3: Invariant safety envelope check (~2ms)
+        # Step 4: Invariant safety envelope check (~2ms)
         status, final_action, verdict, requires_approval = self.safety.verify(ctx, arbitration)
 
         executed = False
@@ -119,6 +152,14 @@ class SentryCore:
             exec_message = msg
             target_key = f"{ctx.namespace}:{ctx.service_name}:{ctx.pod_name or 'any'}"
             self.guard.record_execution(target_key)
+
+            # Register active root failure to shield upstream victim callers for 30 seconds
+            self.topology_suppressor.register_root_failure(
+                service_name=ctx.service_name,
+                action=final_action,
+                ctx=ctx,
+                ttl_seconds=30.0,
+            )
 
             # Schedule post-remediation verification probe
             job_id = f"job-{ctx.service_name}-{int(time.time()*1000)}"
@@ -155,7 +196,6 @@ class SentryCore:
                 dingtalk_card=dingtalk_card,
             )
 
-        # Record Incident Artifact for Post-Mortem & Timeline Exporter
         postmortem_engine.record_incident(
             incident_id=incident_id,
             ctx=ctx,
@@ -199,7 +239,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AIOps-Sentry",
     description="Sub-100ms Autonomous Remediation Arbitrator for Kubernetes & Microservices powered by Jev",
-    version="3.0.0",
+    version="4.0.0",
     lifespan=lifespan,
 )
 
@@ -227,6 +267,7 @@ async def health():
         "min_confidence": settings.min_confidence_threshold,
         "storm_deduplicated_count": core.deduplicator.total_deduplicated_count,
         "recorded_incidents_count": len(postmortem_engine.incidents),
+        "topology_suppressed_count": len(core.topology_suppressor.suppression_history),
     }
 
 
@@ -236,11 +277,35 @@ async def arbitrate(ctx: FailureContext):
     return await core.process_context(ctx)
 
 
+@app.get("/v1/sentry/topology")
+async def get_service_topology():
+    """Retrieves current microservice dependency directed call-graph."""
+    return {"topology": core.topology_suppressor.topology.to_dict()}
+
+
+@app.post("/v1/sentry/topology/edge")
+async def add_service_topology_edge(edge: ServiceDependencyEdgeInput):
+    """Dynamically adds or updates a service dependency call-edge."""
+    core.topology_suppressor.topology.add_edge(edge.upstream_service, edge.downstream_service)
+    return {
+        "status": "added",
+        "upstream": edge.upstream_service,
+        "downstream": edge.downstream_service,
+    }
+
+
+@app.get("/v1/sentry/topology/suppressed")
+async def get_suppressed_cascading_alerts():
+    """Retrieves audit history of upstream cascading victim alerts intercepted by the topology suppressor."""
+    return {
+        "total_suppressed": len(core.topology_suppressor.suppression_history),
+        "history": core.topology_suppressor.suppression_history,
+    }
+
+
 @app.post("/v1/sentry/restore", response_model=RestoreResponse)
 async def restore_service(req: RestoreRequest):
-    """
-    Reverse lifecycle restorer: un-drains isolated pods and scales back to baseline replicas.
-    """
+    """Reverse lifecycle restorer: un-drains isolated pods and scales back to baseline replicas."""
     messages = []
     success = True
 

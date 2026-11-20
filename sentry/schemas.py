@@ -69,6 +69,7 @@ class RemediationStatus(str, Enum):
     COOLED_DOWN = "COOLED_DOWN"
     DRY_RUN = "DRY_RUN"
     SHADOW_RECORDED = "SHADOW_RECORDED"
+    CASCADE_SUPPRESSED = "CASCADE_SUPPRESSED"
 
 
 class InteractiveCardDetails(BaseModel):
@@ -122,3 +123,9 @@ class RestoreResponse(BaseModel):
 class GroundTruthSubmission(BaseModel):
     incident_id: str
     human_action: RemediationAction
+
+
+class ServiceDependencyEdgeInput(BaseModel):
+    upstream_service: str
+    downstream_service: str
+

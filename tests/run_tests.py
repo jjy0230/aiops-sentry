@@ -57,6 +57,14 @@ from tests.test_v3_features import (
     test_shadow_mode_dry_run_and_scoreboard,
 )
 
+# Sprint 9 (V4 features: Topology Graph & Cascade Suppressor) tests
+from tests.test_v4_topology import (
+    test_topology_graph_multi_hop_traversal,
+    test_cascade_suppression_victim_shielding,
+    test_end_to_end_topology_cascade_pipeline,
+    test_topology_api_endpoints,
+)
+
 
 async def main():
     sync_tests = [
@@ -81,6 +89,9 @@ async def main():
         # Phase 8: V3 Features (PostMortem & Shadow Mode)
         ("Phase 8 - Post-Mortem: Markdown & Timeline Generation", test_postmortem_engine_markdown_generation),
         ("Phase 8 - Shadow Mode: Scoreboard Evaluation", test_shadow_mode_dry_run_and_scoreboard),
+        # Phase 9: V4 Topology Graph & Cascade Suppressor
+        ("Phase 9 - Topology: Multi-hop Directed Traversal", test_topology_graph_multi_hop_traversal),
+        ("Phase 9 - Cascade: Upstream Victim Shielding Check", test_cascade_suppression_victim_shielding),
     ]
 
     async_tests = [
@@ -101,13 +112,16 @@ async def main():
         # Phase 8: V3 Restorer
         ("Phase 8 - Restorer: Traffic & Scale-in Reversal", test_service_restorer_traffic_and_scale),
         ("Phase 8 - Restorer API: POST /v1/sentry/restore Flow", test_restore_endpoint_flow),
+        # Phase 9: V4 Cascade Pipeline & API
+        ("Phase 9 - Pipeline: E2E Cascading Failure Suppression", test_end_to_end_topology_cascade_pipeline),
+        ("Phase 9 - Topology API: Endpoints & Edge Addition", test_topology_api_endpoints),
     ]
 
     passed = 0
     failed = 0
 
     print("=" * 80)
-    print("AIOps-Sentry Full Production Test Suite (Phase 1 -> Phase 8 / V3)")
+    print("AIOps-Sentry Full Production Test Suite (Phase 1 -> Phase 9 / V4)")
     print("=" * 80)
 
     for name, func in sync_tests:
