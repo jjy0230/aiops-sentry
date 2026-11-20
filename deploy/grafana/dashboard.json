@@ -1,0 +1,62 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "AIOps-Sentry Real-time Remediation Throughput",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(sentry_arbitrations_total[1m])) by (action, status)",
+          "legendFormat": "{{action}} ({{status}})"
+        }
+      ]
+    },
+    {
+      "title": "Arbitration Latency (ms)",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sentry_arbitration_duration_ms_avg",
+          "legendFormat": "Avg Latency"
+        }
+      ]
+    },
+    {
+      "title": "Alert Storm Deduplicated Count",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(sentry_deduplicated_alerts_total)",
+          "legendFormat": "Suppressed Storm Alerts"
+        }
+      ]
+    },
+    {
+      "title": "Safety Envelopes Intercepted Reasons",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(sentry_safety_blocks_total) by (reason)",
+          "legendFormat": "{{reason}}"
+        }
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["aiops", "sre", "sentry"],
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "AIOps-Sentry Production Overview",
+  "uid": "aiops-sentry-overview"
+}
