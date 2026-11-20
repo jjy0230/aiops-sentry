@@ -1,0 +1,22 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'namespace', 'service']
+  group_wait: 0s           # Fast dispatch for P0 auto-remediation
+  group_interval: 10s
+  repeat_interval: 5m
+  receiver: 'aiops-sentry-webhook'
+  routes:
+    - match:
+        severity: P0
+      receiver: 'aiops-sentry-webhook'
+      continue: false
+
+receivers:
+  - name: 'aiops-sentry-webhook'
+    webhook_configs:
+      - url: 'http://aiops-sentry.monitoring.svc.cluster.local:8080/v1/sentry/webhook/alertmanager'
+        send_resolved: false
+        http_config:
+          bearer_token: 'sentry-internal-telemetry-secret'

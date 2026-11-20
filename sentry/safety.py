@@ -2,36 +2,27 @@ import time
 from typing import Dict, Tuple, Optional
 from sentry.config import settings
 from sentry.schemas import FailureContext, RemediationAction, ArbitrationResult, RemediationStatus
+from sentry.lease_guard import DistributedLeaseGuard
 
 
 class BlastRadiusGuard:
     """
     Guards against cascading failures, flapping, and uncontrolled blast radius.
-    Enforces cooldown periods and limits concurrent automatic actions.
+    Delegates to DistributedLeaseGuard for Kubernetes Lease / distributed coordination.
     """
 
-    def __init__(self, cooldown_seconds: int = settings.cooldown_seconds):
+    def __init__(self, cooldown_seconds: int = settings.cooldown_seconds, lease_guard: Optional[DistributedLeaseGuard] = None):
         self.cooldown_seconds = cooldown_seconds
-        # Maps target_key (e.g., service:pod) to timestamp of last executed remediation
-        self._action_history: Dict[str, float] = {}
+        self.lease_guard = lease_guard or DistributedLeaseGuard(cooldown_seconds=cooldown_seconds)
 
     def is_in_cooldown(self, target_key: str) -> Tuple[bool, float]:
-        now = time.time()
-        last_exec = self._action_history.get(target_key)
-        if last_exec is None:
-            return False, 0.0
-
-        elapsed = now - last_exec
-        if elapsed < self.cooldown_seconds:
-            return True, self.cooldown_seconds - elapsed
-
-        return False, 0.0
+        return self.lease_guard.is_in_cooldown(target_key)
 
     def record_execution(self, target_key: str):
-        self._action_history[target_key] = time.time()
+        self.lease_guard.record_execution(target_key)
 
     def reset(self):
-        self._action_history.clear()
+        self.lease_guard.reset()
 
 
 class SafetyEnvelope:
@@ -70,7 +61,7 @@ class SafetyEnvelope:
                 True,
             )
 
-        # 2. Check Cooldown / Flapping protection
+        # 2. Check Cooldown / Flapping protection via Distributed Lease
         in_cooldown, remaining = self.guard.is_in_cooldown(target_key)
         if in_cooldown:
             return (

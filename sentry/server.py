@@ -12,10 +12,14 @@ from sentry.schemas import (
     RemediationExecutionResult,
     RemediationStatus,
     RemediationAction,
+    InteractiveCardDetails,
+    ApprovalRequest,
+    ApprovalResponse,
 )
 from sentry.engine import BaseJevEngine, MockJevEngine, HttpJevClient
 from sentry.safety import SafetyEnvelope, BlastRadiusGuard
 from sentry.executor import CompositeRemediationExecutor
+from sentry.human_gate import ApprovalTokenManager, InteractiveCardBuilder
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,17 +46,19 @@ class SentryCore:
             min_margin=settings.min_margin_threshold,
         )
         self.executor = CompositeRemediationExecutor()
+        self.token_manager = ApprovalTokenManager()
 
     async def process_context(self, ctx: FailureContext) -> RemediationExecutionResult:
-        # Step 1: Fast single-pass Jev forward arbitration
+        # Step 1: Fast single-pass Jev forward arbitration (~20ms)
         arbitration = await self.engine.evaluate(ctx)
 
-        # Step 2: Invariant safety envelope check
+        # Step 2: Invariant safety envelope check (~2ms)
         status, final_action, verdict, requires_approval = self.safety.verify(ctx, arbitration)
 
-        # Step 3: Execution layer
+        # Step 3: Execution or Human Approval Escalation
         executed = False
         exec_message = ""
+        approval_details = None
 
         if status == RemediationStatus.EXECUTED:
             # Action is safe to auto-execute
@@ -62,8 +68,31 @@ class SentryCore:
             target_key = f"{ctx.namespace}:{ctx.service_name}:{ctx.pod_name or 'any'}"
             self.guard.record_execution(target_key)
         else:
-            # Escalated or Cooled down
+            # Escalated, Cooled down, or Blocked by Safety Envelopes -> Human in the loop
             exec_message = f"Remediation blocked/escalated. Reason: {verdict}"
+            
+            # Generate cryptographic approval token and ChatOps cards
+            token_str = self.token_manager.create_token(
+                action=arbitration.selected_action,
+                ctx=ctx,
+                reason=verdict,
+            )
+            feishu_card = InteractiveCardBuilder.build_feishu_card(
+                ctx=ctx,
+                arbitration=arbitration,
+                approval_token=token_str,
+                verdict=verdict,
+            )
+            dingtalk_card = InteractiveCardBuilder.build_dingtalk_card(
+                ctx=ctx,
+                arbitration=arbitration,
+                approval_token=token_str,
+            )
+            approval_details = InteractiveCardDetails(
+                approval_token=token_str,
+                feishu_card=feishu_card,
+                dingtalk_card=dingtalk_card,
+            )
 
         return RemediationExecutionResult(
             action=final_action,
@@ -75,6 +104,7 @@ class SentryCore:
             target_service=ctx.service_name,
             target_pod=ctx.pod_name,
             arbitration=arbitration,
+            approval_details=approval_details,
         )
 
 
@@ -120,6 +150,48 @@ async def arbitrate(ctx: FailureContext):
     return await core.process_context(ctx)
 
 
+@app.post("/v1/sentry/approval", response_model=ApprovalResponse)
+async def handle_human_approval(req: ApprovalRequest):
+    """
+    Human-in-the-loop authorization callback endpoint.
+    Validates token signature and executes approved SOP action.
+    """
+    valid, payload, err_msg = core.token_manager.verify_and_consume(req.approval_token)
+    if not valid or not payload:
+        raise HTTPException(status_code=400, detail=f"Approval authorization failed: {err_msg}")
+
+    if not req.approved:
+        logger.info("SOP execution rejected by operator '%s' for service '%s'", req.operator_id, payload.service_name)
+        return ApprovalResponse(
+            success=False,
+            message=f"Action '{payload.action.value}' was rejected by operator {req.operator_id}.",
+            executed_action=payload.action,
+            target_service=payload.service_name,
+            operator_id=req.operator_id,
+        )
+
+    # Reconstruct execution context from validated payload
+    ctx = FailureContext(
+        service_name=payload.service_name,
+        namespace=payload.namespace,
+        pod_name=payload.pod_name,
+        error_logs=f"Approved by operator {req.operator_id}",
+    )
+
+    success, msg = await core.executor.execute(payload.action, ctx)
+    target_key = f"{payload.namespace}:{payload.service_name}:{payload.pod_name or 'any'}"
+    core.guard.record_execution(target_key)
+
+    logger.info("Operator '%s' authorized action '%s' for '%s': %s", req.operator_id, payload.action.value, payload.service_name, msg)
+    return ApprovalResponse(
+        success=success,
+        message=f"Operator {req.operator_id} approved: {msg}",
+        executed_action=payload.action,
+        target_service=payload.service_name,
+        operator_id=req.operator_id,
+    )
+
+
 @app.post("/v1/sentry/webhook/alertmanager")
 async def alertmanager_webhook(payload: AlertmanagerWebhook):
     """
@@ -131,7 +203,6 @@ async def alertmanager_webhook(payload: AlertmanagerWebhook):
         if alert.status != "firing":
             continue
 
-        # Extract context from labels and annotations
         labels = {**payload.commonLabels, **alert.labels}
         annotations = {**payload.commonAnnotations, **alert.annotations}
 
@@ -139,7 +210,6 @@ async def alertmanager_webhook(payload: AlertmanagerWebhook):
         namespace = labels.get("namespace", "default")
         pod_name = labels.get("pod") or labels.get("instance")
 
-        # Telemetry metrics extraction
         try:
             cpu_val = float(annotations.get("cpu_usage_pct", labels.get("cpu", "0.0")))
         except ValueError:
@@ -155,7 +225,7 @@ async def alertmanager_webhook(payload: AlertmanagerWebhook):
         except ValueError:
             active_conn = 0
 
-        logs = annotations.get("error_logs") or annotations.get("description") or annotations.get("summary", "")
+        logs = annotations.get("sentry.aiops/stacktrace") or annotations.get("error_logs") or annotations.get("description") or annotations.get("summary", "")
         rule = labels.get("alertname", "UnknownAlert")
 
         ctx = FailureContext(

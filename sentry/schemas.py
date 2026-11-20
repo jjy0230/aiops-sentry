@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
 
 
@@ -16,14 +16,14 @@ class FailureContext(BaseModel):
     namespace: str = "default"
     pod_name: Optional[str] = None
     node_name: Optional[str] = None
-    
+
     # Telemetry metrics
     cpu_usage_pct: float = 0.0
     memory_usage_pct: float = 0.0
     active_connections: int = 0
     max_connections: int = 100
     p99_latency_ms: float = 0.0
-    
+
     # Log and stacktrace snippet
     error_logs: str = ""
     trigger_rule: str = ""
@@ -70,6 +70,12 @@ class RemediationStatus(str, Enum):
     DRY_RUN = "DRY_RUN"
 
 
+class InteractiveCardDetails(BaseModel):
+    approval_token: str
+    feishu_card: Optional[Dict[str, Any]] = None
+    dingtalk_card: Optional[Dict[str, Any]] = None
+
+
 class RemediationExecutionResult(BaseModel):
     action: RemediationAction
     status: RemediationStatus
@@ -80,3 +86,19 @@ class RemediationExecutionResult(BaseModel):
     target_service: str
     target_pod: Optional[str] = None
     arbitration: ArbitrationResult
+    approval_details: Optional[InteractiveCardDetails] = None
+
+
+class ApprovalRequest(BaseModel):
+    approval_token: str
+    approved: bool
+    operator_id: str = "oncall-sre"
+    comments: Optional[str] = None
+
+
+class ApprovalResponse(BaseModel):
+    success: bool
+    message: str
+    executed_action: Optional[RemediationAction] = None
+    target_service: Optional[str] = None
+    operator_id: str

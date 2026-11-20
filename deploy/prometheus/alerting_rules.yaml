@@ -1,0 +1,40 @@
+groups:
+  - name: aiops_sentry_rules
+    rules:
+      - alert: DatabaseConnectionPoolStarvation
+        expr: (hikaricp_connections_active / hikaricp_connections_max) > 0.95
+        for: 15s
+        labels:
+          severity: P0
+          tier: database
+        annotations:
+          summary: "Database connection pool near total exhaustion on {{ $labels.service }}"
+          description: "Active connections ratio reached {{ $value | humanizePercentage }}"
+          sentry.aiops/stacktrace: "HikariPool-1 - Connection is not available, request timed out after 30000ms. Lock wait timeout exceeded"
+          sentry.aiops/active-connections: "{{ $value }}"
+          active_connections: "100"
+          cpu_usage_pct: "98.5"
+
+      - alert: PodMemoryLimitExceeded
+        expr: (container_memory_working_set_bytes{container!=""} / container_spec_memory_limit_bytes{container!=""}) > 0.95
+        for: 10s
+        labels:
+          severity: P0
+          tier: workload
+        annotations:
+          summary: "Pod OOM risk: Memory utilization above 95% on {{ $labels.pod }}"
+          sentry.aiops/stacktrace: "java.lang.OutOfMemoryError: Java heap space"
+          memory_usage_pct: "96.5"
+          cpu_usage_pct: "45.0"
+
+      - alert: ComputeCapacitySaturation
+        expr: (sum(rate(container_cpu_usage_seconds_total{container!=""}[1m])) by (pod) / sum(kube_pod_container_resource_limits{resource="cpu"}) by (pod)) > 0.90
+        for: 30s
+        labels:
+          severity: P1
+          tier: workload
+        annotations:
+          summary: "Compute capacity saturated without fatal exception"
+          cpu_usage_pct: "94.0"
+          memory_usage_pct: "55.0"
+          error_logs: "HTTP 504 Gateway Timeout upstream queue full"
